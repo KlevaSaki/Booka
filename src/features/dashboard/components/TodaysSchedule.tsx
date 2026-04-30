@@ -1,18 +1,19 @@
-import { useState, useEffect } from "react";
 import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
-import { getBookings } from "../../bookings/store";
+import { useBookingStore } from "../../bookings/store";
+import { useParams } from "react-router-dom";
 
 export default function TodaySchedule() {
-  const [bookings, setBookings] = useState(getBookings());
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setBookings(getBookings());
-    }, 500);
+  const { slug } = useParams();
 
-    return () => clearInterval(interval);
-  }, []);
+  // ⭐ SUBSCRIBE TO BOOKINGS STATE
+  const bookings = useBookingStore((s) => s.bookings);
+
+  // ⭐ FILTER LOCALLY (reactive)
+  const todayBookings = bookings.filter(
+    (b) => b.businessSlug === slug
+  );
 
   return (
     <div className="mt-6">
@@ -20,13 +21,13 @@ export default function TodaySchedule() {
         Today Schedule
       </h2>
 
-      {bookings.length === 0 ? (
+      {todayBookings.length === 0 ? (
         <Card>
           <p className="text-gray-500">No bookings yet</p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {bookings.map((b) => (
+          {todayBookings.map((b) => (
             <Card key={b.id}>
               <div className="flex justify-between">
                 <div>

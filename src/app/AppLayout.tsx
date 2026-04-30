@@ -1,6 +1,12 @@
 import { Link, Outlet } from "react-router-dom";
+import { useBusinessStore } from "../features/business/store";
 
 export default function AppLayout() {
+
+    const activeSlug = useBusinessStore(
+    (s) => s.activeBusinessSlug
+  );
+ 
   return (
     
     <div className="flex min-h-screen bg-background">
@@ -11,13 +17,16 @@ export default function AppLayout() {
         <h1 className="text-xl font-bold mb-6">Booka</h1>
 
         <nav className="space-y-3">
-          <Link className="block" to="/">
+          <Link className="block" to={activeSlug ? `/dashboard/${activeSlug}` : "/"}>
             Dashboard
           </Link>
 
-          <Link className="block" to="/new-booking">
-            New Booking
-          </Link>
+          <Link
+            className="block"
+            to={activeSlug ? `/todays-schedule/${activeSlug}` : "/"}
+            >
+            Todays Schedule
+        </Link>
         </nav>
       </aside>
 

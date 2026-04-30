@@ -1,28 +1,39 @@
 import { useState } from "react";
+import { useParams } from "react-router-dom";
+
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 
-import { addBooking } from "../store";
-import { v4 as uuid } from "uuid";
+import { useBookingStore } from "../store";
 
 export default function BookingForm({
   service,
   time,
   onBack,
 }: any) {
+
+  const { slug } = useParams(); // ⭐ get business slug
+
+  const addBooking = useBookingStore((s) => s.addBooking);
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
   function handleSubmit() {
-    addBooking({
-    id: uuid(),
-    service: service.name,
-    time,
-    name,
-    phone,
-  });
+    if (!slug) {
+      alert("Business not found");
+      return;
+    }
 
-  alert("Booking created!");
+    addBooking({
+      service: service.name,
+      time,
+      name,
+      phone,
+      businessSlug: slug, // ⭐ LINK BOOKING TO BUSINESS
+    });
+
+    alert("Booking created!");
   }
 
   return (
@@ -50,7 +61,10 @@ export default function BookingForm({
       />
 
       <div className="flex gap-2">
-        <button onClick={onBack} className="px-4 py-2 border cursor-pointer rounded-lg">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 border cursor-pointer rounded-lg"
+        >
           Back
         </button>
 

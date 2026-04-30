@@ -3,25 +3,32 @@ import AppLayout from "./AppLayout";
 import Dashboard from "../pages/Dashboard";
 import PublicBooking from "../pages/PublicBooking";
 import Login from "../pages/Login";
-import NewBooking from "../pages/NewBooking";
+import Onboarding from "../pages/Onboarding";
+import TodaySchedule from "../features/dashboard/components/TodaysSchedule";
+
 
 export const router = createBrowserRouter([
+    {
+    path: "/onboarding",
+    element: <Onboarding />,
+  },
+
   {
     path: "/",
     element: <AppLayout />,
     children: [
       {
-        index: true,
+        path: "/dashboard/:slug",
         element: <Dashboard />,
       },
       {
-        path: "/new-booking",
-        element: <NewBooking />,
+        path: "/todays-schedule/:slug",
+        element: <TodaySchedule />,
       },
     ]
   },
   {
-    path: "/book/:businessId",
+    path: "/b/:slug",
     element: <PublicBooking />,
   },
   {

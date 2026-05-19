@@ -20,6 +20,7 @@ export default function AuthPage() {
     businessName: "",
     owner: "",
     email: "",
+    description: "",
     phone: "",
     location: "",
     password: "",
@@ -42,8 +43,10 @@ export default function AuthPage() {
       owner: form.owner,
       phone: form.phone,
       location: form.location,
+      description: form.description,
       email: form.email,
       password: form.password,
+      services: [],
       images: [],
       isSetupComplete: false,
     });
@@ -142,6 +145,14 @@ export default function AuthPage() {
                 placeholder="Business Name"
                 className="w-full border p-3 rounded-lg"
                 value={form.businessName}
+                onChange={handleChange}
+              />
+
+              <input
+                name="description"
+                placeholder="Business Description"
+                className="w-full border p-3 rounded-lg"
+                value={form.description}
                 onChange={handleChange}
               />
 

@@ -7,6 +7,7 @@ import Onboarding from "../pages/Onboarding";
 import TodaySchedule from "../features/dashboard/components/TodaysSchedule";
 import Settings from "../features/bookings/components/Settings";
 import BusinessSetup from "../pages/BusinessSetup";
+import PublicLayout from "./PublicLayout";
 
 
 export const router = createBrowserRouter([
@@ -34,6 +35,15 @@ export const router = createBrowserRouter([
         path: "settings/:slug",
         element: <Settings />,
       },
+    ]
+  },
+  {
+    element: <PublicLayout />,
+    children:[
+      {
+      path:"/b/:slug",
+      element:<PublicBooking />
+    }
     ]
   },
   {

@@ -2,7 +2,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useBusinessStore } from "../features/business/store";
 import { useState } from "react";
 
-import { SERVICES_BY_DEPARTMENT } from "../features/constants/services";
+type Service = {
+  name: string;
+  price: number;
+};
 
 export default function BusinessSetup() {
   const { slug } = useParams();
@@ -11,7 +14,8 @@ export default function BusinessSetup() {
   const [ image, setImage ] = useState<string>("");
   const [ department, setDepartment ] = useState<string>("");
   const [serviceInput, setServiceInput] = useState<string>("");
-    const [services, setServices] = useState<string[]>([]);
+  const [ servicePriceInput, setServicePriceInput ] = useState<string>("")
+  const [services, setServices] = useState<Service[]>([]);
   const [ workingDays, setWorkingDays ] = useState<string[]>([]);
   const [openTime, setOpenTime] = useState<string>("");
   const [ closeTime, setCloseTime ] = useState<string>("");
@@ -90,17 +94,25 @@ const TIMES = [
     };
 
     function addService() {
-        const value = serviceInput.trim();
-        if (!value) return;
+        const name = serviceInput.trim();
+        const price = Number(servicePriceInput);
 
-        if (services.includes(value)) return;
+        if (!name) return;
+        if (Number.isNaN(price) || price < 0) return;
 
-        setServices((prev) => [...prev, value]);
+        const alreadyExists = services.some(
+            (service) => service.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (alreadyExists) return;
+
+        setServices((prev) => [...prev, { name, price }]);
         setServiceInput("");
+        setServicePriceInput("");
     }
 
-    function removeService(service: string) {
-        setServices((prev) => prev.filter((s) => s !== service));
+    function removeService(serviceName: string) {
+        setServices((prev) => prev.filter((service) => service.name !== serviceName));
     }
 
   return (
@@ -188,40 +200,64 @@ const TIMES = [
 
                 {/* SERVICES */}
                 <label className="block font-medium">Services</label>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={serviceInput}
-                        onChange={(e) => setServiceInput(e.target.value)}
-                        placeholder="e.g. Haircut, Beard trim"
-                        className="flex-1 border p-3 rounded-lg"
-                    />
 
-                    <button
+                <div className="grid gap-2 sm:grid-cols-[1fr_140px_auto]">
+                <input
+                    type="text"
+                    value={serviceInput}
+                    onChange={(e) => setServiceInput(e.target.value)}
+                    placeholder="e.g. Haircut, Beard trim"
+                    className="border p-3 rounded-lg"
+                />
+
+                <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={servicePriceInput}
+                    onChange={(e) => setServicePriceInput(e.target.value)}
+                    placeholder="Price"
+                    className="border p-3 rounded-lg"
+                />
+
+                <button
                     type="button"
                     onClick={addService}
                     className="bg-[#0F3D2E] text-white px-4 rounded-lg"
-                    >
-                        Add
-                    </button>
+                >
+                    Add
+                </button>
                 </div>
 
                 {services.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                        {services.map((s, index) => (
-                            <div key={s} className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
-                                <span className="text-sm text-gray-700">{s}</span>
+                <div className="space-y-2 mt-3">
+                    {services.map((service) => (
+                    <div
+                        key={service.name}
+                        className="flex items-center justify-between gap-3 bg-gray-100 px-4 py-3 rounded-lg"
+                    >
+                        <div>
+                        <p className="text-sm font-medium text-gray-800">
+                            {service.name}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                            {service.price.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                            })}
+                        </p>
+                        </div>
 
-                                    <button
-                                    type="button"
-                                    onClick={() => removeService(s)}
-                                    className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-red-100 text-red-500 text-sm"
-                                    >
-                                    ×
-                                    </button>
-                            </div>
-                        ))}
+                        <button
+                        type="button"
+                        onClick={() => removeService(service.name)}
+                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-100 text-red-500 text-lg"
+                        >
+                        ×
+                        </button>
                     </div>
+                    ))}
+                </div>
                 )}
 
                 {/* WORKING DAYS */}

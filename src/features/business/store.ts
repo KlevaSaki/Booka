@@ -1,12 +1,13 @@
 import { create } from "zustand";
 
-type Business = {
+export type Business = {
   id: string;
   name: string;
   email: string;
   phone: string;
   owner: string;
   location: string;
+  description: string;
   images: string[];
   slug: string;
   bookingLink: string;
@@ -14,7 +15,7 @@ type Business = {
 
   //settings
   department?: string;
-  services?: string[];
+  services: { name: string; price: number}[];
   workingHours?: {
     days: string[];
     open: string;

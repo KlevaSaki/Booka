@@ -20,6 +20,14 @@ export default function Dashboard() {
     return bookings.filter((b) => b.businessSlug === slug);
   }, [bookings, slug]);
 
+
+
+  useEffect(() => {
+    if (business && !business.isSetupComplete) {
+      navigate(`/setup/${business.slug}`);
+    }
+  }, [business, navigate]);
+
   if (!business) {
     return (
       <div className="p-6">
@@ -28,11 +36,7 @@ export default function Dashboard() {
     );
   }
 
-  useEffect(() => {
-    if (!business.isSetupComplete) {
-      navigate(`/setup/${business.slug}`);
-    }
-  }, [business, navigate])
+
 
   // derive latest business safely from store (NOT local state)
   const bookingLink = `${window.location.origin}/b/${business.slug}`;
@@ -111,14 +115,26 @@ const status = getBusinessStatus();
 
         {business.services?.length ? (
           <div className="flex flex-wrap gap-2">
-            {business.services.map((s) => (
-              <span
-                key={s}
-                className="bg-[#0F3D2E] text-white px-3 py-1 rounded-full text-sm"
-              >
-                {s}
-              </span>
-            ))}
+            {business.services?.length ? (
+              <div className="flex flex-wrap gap-2">
+                {business.services.map((service) => (
+                  <span
+                    key={service.name}
+                    className="bg-[#0F3D2E] text-white px-3 py-1 rounded-full text-sm"
+                  >
+                    {service.name} -{" "}
+                    {service.price.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                No services added yet
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-gray-500">
@@ -194,7 +210,7 @@ const status = getBusinessStatus();
 
         <div className="p-4 border rounded-xl">
           <p className="text-sm text-gray-500">Total Bookings</p>
-          <p className="text-xl font-bold">{bookings.length}</p>
+          <p className="text-xl font-bold">{todayBookings.length}</p>
         </div>
 
         <div className="p-4 border rounded-xl">

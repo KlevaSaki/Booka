@@ -69,11 +69,11 @@ export default function TodaySchedule() {
     business?.workingHours?.close
   );
 
-  const monthStart = new Date(
-    visibleMonth.getFullYear(),
-    visibleMonth.getMonth(),
-    1
-  );
+  // const monthStart = new Date(
+  //   visibleMonth.getFullYear(),
+  //   visibleMonth.getMonth(),
+  //   1
+  // );
 
   const monthLabel = visibleMonth.toLocaleDateString("en-US", {
     month: "long",

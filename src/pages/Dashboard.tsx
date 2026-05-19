@@ -1,14 +1,58 @@
-
-import { useEffect, useMemo } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  CalendarDays,
+  Check,
+  Clipboard,
+  Clock,
+  ExternalLink,
+  MapPin,
+  Settings,
+  Share2,
+  Wallet,
+} from "lucide-react";
 import { useBusinessStore } from "../features/business/store";
 import { useBookingStore } from "../features/bookings/store";
 
+function timeToMinutes(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function getDateKey(date: Date) {
+  return date.toISOString().split("T")[0];
+}
+
+function formatDate(datetime?: string) {
+  if (!datetime) return "No date";
+
+  return new Date(datetime).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatTime(datetime?: string) {
+  if (!datetime) return "";
+
+  return new Date(datetime).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatPrice(price: number) {
+  return `KES ${price.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 export default function Dashboard() {
   const { slug } = useParams();
-
   const navigate = useNavigate();
+
+  const [copied, setCopied] = useState(false);
 
   const business = useBusinessStore((s) =>
     s.businesses.find((b) => b.slug === slug)
@@ -16,11 +60,65 @@ export default function Dashboard() {
 
   const bookings = useBookingStore((s) => s.bookings);
 
-  const todayBookings = useMemo(() => {
-    return bookings.filter((b) => b.businessSlug === slug);
+  const businessBookings = useMemo(() => {
+    return bookings.filter((booking) => booking.businessSlug === slug);
   }, [bookings, slug]);
 
+  const todayBookings = useMemo(() => {
+    const today = getDateKey(new Date());
 
+    return businessBookings.filter((booking) => {
+      if (!booking.datetime) return false;
+      return getDateKey(new Date(booking.datetime)) === today;
+    });
+  }, [businessBookings]);
+
+  const upcomingBookings = useMemo(() => {
+    const now = new Date();
+
+    return businessBookings
+      .filter((booking) => booking.datetime && new Date(booking.datetime) >= now)
+      .sort(
+        (a, b) =>
+          new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      )
+      .slice(0, 5);
+  }, [businessBookings]);
+
+  const totalRevenue = useMemo(() => {
+    if (!business?.services?.length) return 0;
+
+    return businessBookings.reduce((total, booking) => {
+      const service = business.services.find(
+        (item) => item.name === booking.service
+      );
+
+      return total + (service?.price || 0);
+    }, 0);
+  }, [business?.services, businessBookings]);
+
+  const status = useMemo(() => {
+    if (!business?.workingHours) return "Unknown";
+
+    const { days, open, close } = business.workingHours;
+
+    const now = new Date();
+    const currentDay = now.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    const isWorkingDay = days?.includes(currentDay);
+
+    if (!isWorkingDay) return "Closed";
+
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const openTime = timeToMinutes(open);
+    const closeTime = timeToMinutes(close);
+
+    return currentTime >= openTime && currentTime <= closeTime
+      ? "Open"
+      : "Closed";
+  }, [business]);
 
   useEffect(() => {
     if (business && !business.isSetupComplete) {
@@ -30,196 +128,290 @@ export default function Dashboard() {
 
   if (!business) {
     return (
-      <div className="p-6">
-        <h2 className="text-lg font-bold">Business not found</h2>
-      </div>
+      <main className="min-h-screen bg-[#FAF7EF] p-6">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-8 text-center shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-950">
+            Business not found
+          </h2>
+          <p className="mt-2 text-sm text-gray-500">
+            This dashboard link is invalid.
+          </p>
+        </div>
+      </main>
     );
   }
 
-
-
-  // derive latest business safely from store (NOT local state)
   const bookingLink = `${window.location.origin}/b/${business.slug}`;
 
+  async function copyBookingLink() {
+    await navigator.clipboard.writeText(bookingLink);
+    setCopied(true);
 
-  function getBusinessStatus() {
-  if (!business?.workingHours) return "Unknown";
-
-  const { days, open, close } = business.workingHours;
-
-  const now = new Date();
-
-  // Get current day name
-  const currentDay = now.toLocaleDateString("en-US", {
-    weekday: "long",
-  });
-
-  // 1. Check if today is a working day
-  const isWorkingDay = days?.includes(currentDay);
-
-  if (!isWorkingDay) return "Closed";
-
-  // 2. Convert time strings to comparable values
-  const currentTime = now.getHours() * 60 + now.getMinutes();
-
-  const [openH, openM] = open.split(":").map(Number);
-  const [closeH, closeM] = close.split(":").map(Number);
-
-  const openTime = openH * 60 + openM;
-  const closeTime = closeH * 60 + closeM;
-
-  // 3. Check time range
-  const isOpen = currentTime >= openTime && currentTime <= closeTime;
-
-  return isOpen ? "Open" : "Closed";
-}
-
-
-const status = getBusinessStatus();
+    window.setTimeout(() => {
+      setCopied(false);
+    }, 1800);
+  }
 
   return (
-      <div className="p-6 space-y-6">
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-sm">
+        <div className="relative min-h-64 bg-[#0F3D2E]">
+          {business.images?.[0] && (
+            <img
+              src={business.images[0]}
+              alt={business.name}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
 
-      {/* HEADER */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{business.name}</h1>
-          <p className="text-gray-500 mt-1">{business.location}</p>
-          <p className="text-sm text-gray-400 mt-1">{business.department}</p>
-        </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
 
-        <Link to={`/settings/${business.slug}`}>
-            <button className="px-4 py-2 bg-[#0F3D2E] text-white rounded-lg">
-              Settings
-            </button>
-        </Link>
-      </div>
+          <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div
+                  className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                    status === "Open"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {status}
+                </div>
 
-      {/* Image Banner */}
-      {business.images?.[0] && (
-        <div className="w-full h-52 rounded-xl overflow-hidden">
-          <img
-            src={business.images[0]}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
+                <h1 className="max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+                  {business.name}
+                </h1>
 
-      {/* Services Offered */}
-
-      <div className="p-4 border rounded-xl bg-white">
-
-        <h2 className="text-lg font-semibold mb-3">
-          Services Offered
-        </h2>
-
-        {business.services?.length ? (
-          <div className="flex flex-wrap gap-2">
-            {business.services?.length ? (
-              <div className="flex flex-wrap gap-2">
-                {business.services.map((service) => (
-                  <span
-                    key={service.name}
-                    className="bg-[#0F3D2E] text-white px-3 py-1 rounded-full text-sm"
-                  >
-                    {service.name} -{" "}
-                    {service.price.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                <div className="mt-3 flex flex-wrap gap-3 text-sm text-white/75">
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {business.location}
                   </span>
-                ))}
+
+                  {business.department && (
+                    <span className="rounded-full bg-white/10 px-3 py-1 capitalize">
+                      {business.department}
+                    </span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-gray-500">
-                No services added yet
+
+              <Link
+                to={`/settings/${business.slug}`}
+                className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#FAF7EF] px-4 py-3 text-sm font-semibold text-[#0F3D2E] transition hover:bg-white"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </div>
+
+            {business.description && (
+              <p className="mt-8 max-w-2xl text-sm leading-6 text-white/75 sm:text-base">
+                {business.description}
               </p>
             )}
           </div>
-        ) : (
-          <p className="text-sm text-gray-500">
-            No services added yet
+        </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+          <p className="flex items-center gap-2 text-sm text-gray-500">
+            <CalendarDays className="h-4 w-4 text-[#0F3D2E]" />
+            Today
           </p>
-        )}
-
-      </div>
-
-      {/* Business Schedule */}
-
-      <div className="p-4 border rounded-xl bg-white">
-
-        <h2 className="text-lg font-semibold mb-3">
-          Business Schedule
-        </h2>
-
-        {business.workingHours ? (
-          <div className="space-y-2 text-sm text-gray-700">
-
-            <div>
-              <span className="font-medium">Days:</span>{" "}
-              {business.workingHours.days?.join(", ")}
-            </div>
-
-            <div>
-              <span className="font-medium">Hours:</span>{" "}
-              {business.workingHours.open} - {business.workingHours.close}
-            </div>
-
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">
-            Working hours not set
+          <p className="mt-3 text-3xl font-semibold text-gray-950">
+            {todayBookings.length}
           </p>
-        )}
+        </div>
 
-      </div>
-
-
-       {/* WHATSAPP SHARE (FIXED) */}
-        <div className="p-4 border rounded-xl bg-gray-50 space-y-2">
-
-          <p className="font-semibold">
-            Share your business
+        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+          <p className="flex items-center gap-2 text-sm text-gray-500">
+            <Clipboard className="h-4 w-4 text-[#0F3D2E]" />
+            Total Bookings
           </p>
+          <p className="mt-3 text-3xl font-semibold text-gray-950">
+            {businessBookings.length}
+          </p>
+        </div>
 
-          <input
-            readOnly
-            value={bookingLink}
-            className="w-full border p-2 rounded"
-          />
+        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+          <p className="flex items-center gap-2 text-sm text-gray-500">
+            <Wallet className="h-4 w-4 text-[#0F3D2E]" />
+            Estimated Revenue
+          </p>
+          <p className="mt-3 text-2xl font-semibold text-gray-950">
+            {formatPrice(totalRevenue)}
+          </p>
+        </div>
 
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(
-              `Book with ${business.name}: ${bookingLink}`
-            )}`}
-            target="_blank"
-            className="block text-center bg-[#0F3D2E] text-white p-3 rounded-lg"
+        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+          <p className="flex items-center gap-2 text-sm text-gray-500">
+            <Clock className="h-4 w-4 text-[#0F3D2E]" />
+            Business Status
+          </p>
+          <p
+            className={`mt-3 text-3xl font-semibold ${
+              status === "Open" ? "text-green-600" : "text-red-500"
+            }`}
           >
-            Share on WhatsApp
-          </a>
+            {status}
+          </p>
+        </div>
+      </section>
 
+      <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-gray-950">
+                Services Offered
+              </h2>
+              <span className="rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
+                {business.services?.length || 0} services
+              </span>
+            </div>
+
+            {business.services?.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {business.services.map((service) => (
+                  <div
+                    key={service.name}
+                    className="rounded-xl border border-gray-200 bg-[#FAF7EF] p-4"
+                  >
+                    <p className="font-semibold text-gray-950">
+                      {service.name}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-[#0F3D2E]">
+                      {formatPrice(service.price)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No services added yet.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-950">
+              Upcoming Bookings
+            </h2>
+
+            {upcomingBookings.length ? (
+              <div className="mt-4 space-y-3">
+                {upcomingBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-950">
+                        {booking.name}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {booking.service}
+                      </p>
+                    </div>
+
+                    <div className="text-sm text-gray-600 sm:text-right">
+                      <p className="font-medium text-gray-950">
+                        {formatDate(booking.datetime)}
+                      </p>
+                      <p>{formatTime(booking.datetime)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-gray-500">
+                No upcoming bookings yet.
+              </p>
+            )}
+          </div>
         </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-3 gap-4">
+        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-950">
+              Business Schedule
+            </h2>
 
-        <div className="p-4 border rounded-xl">
-          <p className="text-sm text-gray-500">Today</p>
-          <p className="text-xl font-bold">{todayBookings.length}</p>
-        </div>
+            {business.workingHours ? (
+              <div className="mt-4 space-y-4 text-sm">
+                <div>
+                  <p className="font-medium text-gray-950">Working Days</p>
+                  <p className="mt-1 text-gray-500">
+                    {business.workingHours.days?.join(", ")}
+                  </p>
+                </div>
 
-        <div className="p-4 border rounded-xl">
-          <p className="text-sm text-gray-500">Total Bookings</p>
-          <p className="text-xl font-bold">{todayBookings.length}</p>
-        </div>
+                <div>
+                  <p className="font-medium text-gray-950">Hours</p>
+                  <p className="mt-1 text-gray-500">
+                    {business.workingHours.open} - {business.workingHours.close}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-gray-500">
+                Working hours not set.
+              </p>
+            )}
+          </div>
 
-        <div className="p-4 border rounded-xl">
-          <p className="text-sm text-gray-500">Status</p>
-          <p className={`text-xl font-bold ${status === "Open" ? "text-green-600" : "text-red-500"}`}>{status}</p>
-        </div>
+          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-950">
+              Share Your Business
+            </h2>
 
-      </div>
+            <div className="mt-4 rounded-xl bg-[#FAF7EF] p-3">
+              <p className="truncate text-sm text-gray-600">{bookingLink}</p>
+            </div>
 
+            <div className="mt-4 grid gap-3">
+              <button
+                type="button"
+                onClick={copyBookingLink}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Clipboard className="h-4 w-4" />
+                    Copy Link
+                  </>
+                )}
+              </button>
+
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Book with ${business.name}: ${bookingLink}`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#0F3D2E]/20 px-4 py-3 text-sm font-semibold text-[#0F3D2E] transition hover:bg-[#FAF7EF]"
+              >
+                <Share2 className="h-4 w-4" />
+                Share on WhatsApp
+              </a>
+
+              <Link
+                to={`/b/${business.slug}`}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                <ExternalLink className="h-4 w-4" />
+                View Public Page
+              </Link>
+            </div>
+          </div>
+        </aside>
+      </section>
     </div>
   );
 }

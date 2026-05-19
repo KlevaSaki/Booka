@@ -3,10 +3,10 @@ import { create } from "zustand";
 export type Booking = {
   id: string;
   service: string;
-  time: string;
   name: string;
   phone: string;
   businessSlug: string; // ⭐ CRITICAL
+  datetime: string;
 };
 
 const STORAGE_KEY = "booka_bookings";

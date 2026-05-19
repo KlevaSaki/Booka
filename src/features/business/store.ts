@@ -3,12 +3,25 @@ import { create } from "zustand";
 type Business = {
   id: string;
   name: string;
+  email: string;
   phone: string;
   owner: string;
   location: string;
   images: string[];
   slug: string;
   bookingLink: string;
+  password: string;
+
+  //settings
+  department?: string;
+  services?: string[];
+  workingHours?: {
+    days: string[];
+    open: string;
+    close: string;
+  };
+  isSetupComplete: boolean;
+  
 };
 
 const STORAGE_KEY = "booka_businesses";
@@ -55,6 +68,12 @@ type Store = {
   setActiveBusiness: (slug: string) => void;
 
   getBusinessBySlug: (slug: string) => Business | undefined;
+
+
+  updateBusiness: (
+    slug: string,
+    data: Partial<Business>
+  ) => void;
 };
 
 /* ---------------- INITIAL STATE ---------------- */
@@ -117,4 +136,22 @@ export const useBusinessStore = create<Store>((set, get) => ({
   getBusinessBySlug: (slug) => {
     return get().businesses.find((b) => b.slug === slug);
   },
+
+  /* ---------- UPDATE BUSINESS ---------- */
+
+updateBusiness: (slug, data) => {
+  const updatedBusinesses = get().businesses.map((b) =>
+    b.slug === slug ? { ...b, ...data } : b
+  );
+
+  saveBusinesses(updatedBusinesses);
+
+  const updatedCurrent =
+    updatedBusinesses.find((b) => b.slug === slug) || null;
+
+  set({
+    businesses: updatedBusinesses,
+    currentBusiness: updatedCurrent,
+  });
+},
 }));

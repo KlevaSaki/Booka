@@ -5,25 +5,34 @@ import PublicBooking from "../pages/PublicBooking";
 import Login from "../pages/Login";
 import Onboarding from "../pages/Onboarding";
 import TodaySchedule from "../features/dashboard/components/TodaysSchedule";
+import Settings from "../features/bookings/components/Settings";
+import BusinessSetup from "../pages/BusinessSetup";
 
 
 export const router = createBrowserRouter([
     {
-    path: "/onboarding",
+    path: "/",
     element: <Onboarding />,
   },
 
   {
-    path: "/",
     element: <AppLayout />,
     children: [
       {
-        path: "/dashboard/:slug",
+        path: "setup/:slug",
+        element: <BusinessSetup />
+      },
+      {
+        path: "dashboard/:slug",
         element: <Dashboard />,
       },
       {
-        path: "/todays-schedule/:slug",
+        path: "todays-schedule/:slug",
         element: <TodaySchedule />,
+      },
+      {
+        path: "settings/:slug",
+        element: <Settings />,
       },
     ]
   },

@@ -538,7 +538,7 @@ export default function BusinessSetup() {
                 <div className="relative min-w-0">
                   <MessageCircle className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                   <input
-                    type="url"
+                    type="text"
                     value={instagram}
                     onChange={(e) => setInstagram(e.target.value)}
                     placeholder="Instagram link"
@@ -549,7 +549,7 @@ export default function BusinessSetup() {
                 <div className="relative min-w-0">
                   <Share2 className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                   <input
-                    type="url"
+                    type="text"
                     value={facebook}
                     onChange={(e) => setFacebook(e.target.value)}
                     placeholder="Facebook link"
@@ -560,7 +560,7 @@ export default function BusinessSetup() {
                 <div className="relative min-w-0">
                   <Globe className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                   <input
-                    type="url"
+                    type="text"
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
                     placeholder="Website link"

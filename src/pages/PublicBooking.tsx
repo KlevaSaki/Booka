@@ -105,6 +105,9 @@ function BookingExperience({ business }: { business: Business }) {
   const availableSlots = timeSlots.filter((slot) => !bookedTimes.includes(slot));
   const galleryImages = business.images?.slice(1, 4) || [];
 
+  const inputClass =
+    "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
+
   function handleSubmit() {
     setError("");
     setConfirmed(false);
@@ -131,10 +134,10 @@ function BookingExperience({ business }: { business: Business }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 text-gray-900">
+    <div className="mx-auto min-w-0 max-w-6xl space-y-6 overflow-x-hidden text-gray-900">
       <section className="overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-sm">
-        <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="relative h-72 bg-[#0F3D2E] sm:h-96">
+        <div className="grid min-w-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <div className="relative h-72 min-w-0 bg-[#0F3D2E] sm:h-96">
             {business.images?.[0] ? (
               <img
                 src={business.images[0]}
@@ -143,24 +146,24 @@ function BookingExperience({ business }: { business: Business }) {
               />
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center">
-                <h1 className="text-4xl font-semibold text-[#FAF7EF]">
+                <h1 className="break-words text-4xl font-semibold text-[#FAF7EF]">
                   {business.name}
                 </h1>
               </div>
             )}
 
-            <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-            <div className="absolute bottom-0 left-0 right-0 p-5 text-white sm:p-7">
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <div className="absolute bottom-0 left-0 right-0 min-w-0 p-5 text-white sm:p-7">
+              <h1 className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">
                 {business.name}
               </h1>
 
-              <div className="mt-3 flex flex-wrap gap-3 text-sm text-white/80">
+              <div className="mt-3 flex min-w-0 flex-wrap gap-3 text-sm text-white/80">
                 {business.location && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {business.location}
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{business.location}</span>
                   </span>
                 )}
 
@@ -173,18 +176,18 @@ function BookingExperience({ business }: { business: Business }) {
             </div>
           </div>
 
-          <div className="flex flex-col justify-between gap-5 p-5 sm:p-7">
-            <div>
-              <p className="text-sm leading-6 text-gray-600">
+          <div className="flex min-w-0 flex-col justify-between gap-5 p-5 sm:p-7">
+            <div className="min-w-0">
+              <p className="break-words text-sm leading-6 text-gray-600">
                 {business.description ||
                   "Choose a service, pick an available time, and confirm your booking in a few quick steps."}
               </p>
 
-              <div className="mt-5 rounded-xl bg-[#FAF7EF] p-4">
+              <div className="mt-5 min-w-0 rounded-xl bg-[#FAF7EF] p-4">
                 <p className="text-sm font-semibold text-gray-950">
                   Opening Hours
                 </p>
-                <p className="mt-1 text-sm text-gray-600">
+                <p className="mt-1 break-words text-sm text-gray-600">
                   {business.workingHours?.days?.join(", ") || "Days not set"}
                 </p>
                 <p className="mt-1 text-sm text-gray-600">
@@ -194,15 +197,15 @@ function BookingExperience({ business }: { business: Business }) {
               </div>
             </div>
 
-            <div>
-              <div className="grid grid-cols-3 gap-2">
+            <div className="min-w-0">
+              <div className="grid min-w-0 grid-cols-3 gap-2">
                 {[0, 1, 2].map((index) => {
                   const image = galleryImages[index];
 
                   return (
                     <div
                       key={index}
-                      className="aspect-square overflow-hidden rounded-xl border border-[#D8D0BE] bg-[#FAF7EF]"
+                      className="aspect-square min-w-0 overflow-hidden rounded-xl border border-[#D8D0BE] bg-[#FAF7EF]"
                     >
                       {image ? (
                         <img
@@ -220,18 +223,27 @@ function BookingExperience({ business }: { business: Business }) {
                 })}
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <a href="#" className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50">
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  Instagram
+              <div className="mt-4 flex min-w-0 flex-wrap gap-2">
+                <a
+                  href="#"
+                  className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Instagram</span>
                 </a>
-                <a href="#" className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50">
-                  <Share2 className="h-3.5 w-3.5" />
-                  Facebook
+                <a
+                  href="#"
+                  className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  <Share2 className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Facebook</span>
                 </a>
-                <a href="#" className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50">
-                  <Globe className="h-3.5 w-3.5" />
-                  Website
+                <a
+                  href="#"
+                  className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  <Globe className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Website</span>
                 </a>
               </div>
             </div>
@@ -239,9 +251,9 @@ function BookingExperience({ business }: { business: Business }) {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-6">
+          <section className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Choose a Service
             </h2>
@@ -249,7 +261,7 @@ function BookingExperience({ business }: { business: Business }) {
               Select the service you would like to book.
             </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
               {business.services?.map((service: any) => {
                 const serviceName = getServiceName(service);
                 const servicePrice = getServicePrice(service);
@@ -260,24 +272,24 @@ function BookingExperience({ business }: { business: Business }) {
                     key={serviceName}
                     type="button"
                     onClick={() => setSelectedService(serviceName)}
-                    className={`rounded-xl border p-4 text-left transition ${
+                    className={`min-w-0 rounded-xl border p-4 text-left transition ${
                       isSelected
                         ? "border-[#0F3D2E] bg-[#FAF7EF] ring-2 ring-[#0F3D2E]/15"
                         : "border-gray-200 bg-white hover:border-[#0F3D2E]"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-gray-950">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-gray-950">
                           {serviceName}
                         </p>
-                        <p className="mt-1 text-sm font-medium text-[#0F3D2E]">
+                        <p className="mt-1 truncate text-sm font-medium text-[#0F3D2E]">
                           {formatPrice(servicePrice)}
                         </p>
                       </div>
 
                       {isSelected && (
-                        <CheckCircle2 className="h-5 w-5 text-[#0F3D2E]" />
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-[#0F3D2E]" />
                       )}
                     </div>
                   </button>
@@ -286,7 +298,7 @@ function BookingExperience({ business }: { business: Business }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+          <section className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Select Date & Time
             </h2>
@@ -294,14 +306,14 @@ function BookingExperience({ business }: { business: Business }) {
               Booked slots are disabled automatically.
             </p>
 
-            <div className="mt-4 space-y-4">
-              <div>
+            <div className="mt-4 min-w-0 space-y-4">
+              <div className="min-w-0">
                 <label className="mb-2 block text-sm font-semibold">
                   Preferred Date
                 </label>
                 <input
                   type="date"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10"
+                  className={inputClass}
                   value={date}
                   onChange={(e) => {
                     setDate(e.target.value);
@@ -310,14 +322,14 @@ function BookingExperience({ business }: { business: Business }) {
                 />
               </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
                   <label className="block text-sm font-semibold">
                     Available Times
                   </label>
 
                   {date && (
-                    <span className="text-xs text-gray-500">
+                    <span className="shrink-0 text-xs text-gray-500">
                       {availableSlots.length} available
                     </span>
                   )}
@@ -332,7 +344,7 @@ function BookingExperience({ business }: { business: Business }) {
                     No opening hours available.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
                     {timeSlots.map((slot) => {
                       const isBooked = bookedTimes.includes(slot);
                       const isSelected = time === slot;
@@ -343,7 +355,7 @@ function BookingExperience({ business }: { business: Business }) {
                           type="button"
                           disabled={isBooked}
                           onClick={() => setTime(slot)}
-                          className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                          className={`min-w-0 rounded-xl border px-2 py-3 text-sm font-semibold transition sm:px-3 ${
                             isBooked
                               ? "cursor-not-allowed border-red-100 bg-red-50 text-red-400"
                               : isSelected
@@ -367,7 +379,7 @@ function BookingExperience({ business }: { business: Business }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+          <section className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Your Details
             </h2>
@@ -375,21 +387,21 @@ function BookingExperience({ business }: { business: Business }) {
               We’ll use this information to confirm your booking.
             </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="relative">
+            <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
+              <div className="relative min-w-0">
                 <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                 <input
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10"
+                  className={`${inputClass} pl-10`}
                   placeholder="Your name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
 
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Phone className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                 <input
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10"
+                  className={`${inputClass} pl-10`}
                   placeholder="Phone number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -399,41 +411,43 @@ function BookingExperience({ business }: { business: Business }) {
           </section>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+        <aside className="min-w-0 space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Booking Summary
             </h2>
 
             <div className="mt-4 space-y-4 text-sm">
-              <div className="flex gap-3">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 text-[#0F3D2E]" />
-                <div>
+              <div className="flex min-w-0 gap-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
+                <div className="min-w-0">
                   <p className="font-medium text-gray-950">Service</p>
-                  <p className="text-gray-500">
+                  <p className="truncate text-gray-500">
                     {selectedService || "Not selected"}
                   </p>
                   {selectedServiceDetails && (
-                    <p className="mt-1 font-medium text-[#0F3D2E]">
+                    <p className="mt-1 truncate font-medium text-[#0F3D2E]">
                       {formatPrice(getServicePrice(selectedServiceDetails))}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <CalendarDays className="mt-0.5 h-4 w-4 text-[#0F3D2E]" />
-                <div>
+              <div className="flex min-w-0 gap-3">
+                <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
+                <div className="min-w-0">
                   <p className="font-medium text-gray-950">Date</p>
-                  <p className="text-gray-500">{date || "Not selected"}</p>
+                  <p className="truncate text-gray-500">
+                    {date || "Not selected"}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <Clock className="mt-0.5 h-4 w-4 text-[#0F3D2E]" />
-                <div>
+              <div className="flex min-w-0 gap-3">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
+                <div className="min-w-0">
                   <p className="font-medium text-gray-950">Time</p>
-                  <p className="text-gray-500">
+                  <p className="truncate text-gray-500">
                     {time ? formatTimeLabel(time) : "Not selected"}
                   </p>
                 </div>
@@ -474,8 +488,8 @@ export default function PublicBooking() {
 
   if (!business) {
     return (
-      <main className="min-h-screen bg-[#FAF7EF] px-4 py-20">
-        <div className="mx-auto max-w-md rounded-xl border border-[#D8D0BE] bg-white p-8 text-center shadow-sm">
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-4 py-20">
+        <div className="mx-auto max-w-md rounded-xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-gray-900">
             Business not found
           </h2>
@@ -488,7 +502,7 @@ export default function PublicBooking() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FAF7EF] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+    <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
       <BookingExperience business={business} />
     </main>
   );

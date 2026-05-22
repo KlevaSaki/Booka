@@ -119,21 +119,23 @@ export default function AuthPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10";
+    "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
 
   return (
-    <main className="min-h-screen bg-[#FAF7EF] px-0 py-0 text-gray-900 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mx-auto grid min-h-screen max-w-6xl overflow-hidden bg-white shadow-xl sm:min-h-[calc(100vh-3rem)] sm:rounded-2xl sm:border sm:border-[#D8D0BE] lg:grid-cols-[0.9fr_1.1fr]">
+    <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-0 py-0 text-gray-900 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto grid min-h-screen min-w-0 max-w-6xl overflow-hidden bg-white shadow-xl sm:min-h-[calc(100vh-3rem)] sm:rounded-2xl sm:border sm:border-[#D8D0BE] lg:grid-cols-[0.9fr_1.1fr]">
         <section className="relative flex min-h-72 flex-col justify-between bg-[#0F3D2E] p-6 text-white sm:p-8 lg:p-10">
-          <div>
-            <div className="mb-10 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FAF7EF] text-[#0F3D2E]">
+          <div className="min-w-0">
+            <div className="mb-10 flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FAF7EF] text-[#0F3D2E]">
                 <CalendarCheck className="h-5 w-5" />
               </div>
 
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">Booka</h1>
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/55">
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-semibold tracking-tight">
+                  Booka
+                </h1>
+                <p className="truncate text-xs font-medium uppercase tracking-[0.18em] text-white/55">
                   Business OS
                 </p>
               </div>
@@ -149,22 +151,22 @@ export default function AuthPage() {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-3 text-sm text-white/80">
+          <div className="mt-10 grid min-w-0 gap-3 text-sm text-white/80">
             {[
               "Online booking page",
               "Visual booking calendar",
               "Shareable customer link",
             ].map((item) => (
-              <div key={item} className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-[#FAF7EF]" />
-                <span>{item}</span>
+              <div key={item} className="flex min-w-0 items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-[#FAF7EF]" />
+                <span className="min-w-0">{item}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="p-5 sm:p-8 lg:p-10">
-          <div className="mx-auto max-w-xl">
+        <section className="min-w-0 p-5 sm:p-8 lg:p-10">
+          <div className="mx-auto min-w-0 max-w-xl">
             <div className="mb-8 inline-flex w-full rounded-xl bg-[#F3EFE3] p-1 sm:w-auto">
               <button
                 type="button"
@@ -204,8 +206,8 @@ export default function AuthPage() {
             )}
 
             {mode === "register" ? (
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div>
+              <form onSubmit={handleRegister} className="min-w-0 space-y-4">
+                <div className="min-w-0">
                   <h2 className="text-2xl font-semibold text-gray-950">
                     Create your business
                   </h2>
@@ -215,8 +217,8 @@ export default function AuthPage() {
                   </p>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="relative">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <div className="relative min-w-0">
                     <Building2 className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                     <input
                       required
@@ -228,7 +230,7 @@ export default function AuthPage() {
                     />
                   </div>
 
-                  <div className="relative">
+                  <div className="relative min-w-0">
                     <User className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                     <input
                       required
@@ -250,8 +252,8 @@ export default function AuthPage() {
                   onChange={handleChange}
                 />
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="relative">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <div className="relative min-w-0">
                     <Mail className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                     <input
                       required
@@ -264,7 +266,7 @@ export default function AuthPage() {
                     />
                   </div>
 
-                  <div className="relative">
+                  <div className="relative min-w-0">
                     <Phone className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                     <input
                       required
@@ -277,7 +279,7 @@ export default function AuthPage() {
                   </div>
                 </div>
 
-                <div className="relative">
+                <div className="relative min-w-0">
                   <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                   <input
                     required
@@ -289,9 +291,9 @@ export default function AuthPage() {
                   />
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <div className="relative">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <div className="relative min-w-0">
                       <Lock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                       <input
                         required
@@ -328,7 +330,7 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  <div className="relative">
+                  <div className="relative min-w-0">
                     <Lock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                     <input
                       required
@@ -360,12 +362,12 @@ export default function AuthPage() {
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] p-3.5 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
                 >
                   Create Business
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4 shrink-0" />
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div>
+              <form onSubmit={handleLogin} className="min-w-0 space-y-4">
+                <div className="min-w-0">
                   <h2 className="text-2xl font-semibold text-gray-950">
                     Welcome back
                   </h2>
@@ -374,7 +376,7 @@ export default function AuthPage() {
                   </p>
                 </div>
 
-                <div className="relative">
+                <div className="relative min-w-0">
                   <Mail className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                   <input
                     required
@@ -391,7 +393,7 @@ export default function AuthPage() {
                   />
                 </div>
 
-                <div className="relative">
+                <div className="relative min-w-0">
                   <Lock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                   <input
                     required
@@ -424,7 +426,7 @@ export default function AuthPage() {
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] p-3.5 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
                 >
                   Login
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4 shrink-0" />
                 </button>
               </form>
             )}

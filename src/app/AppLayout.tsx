@@ -62,12 +62,12 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF7EF] text-gray-900 lg:flex">
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF7EF] text-gray-900 lg:flex">
       {/* MOBILE HEADER */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#D8D0BE] bg-[#0F3D2E] px-4 py-3 text-white lg:hidden">
-        <div>
-          <h1 className="text-lg font-semibold">Booka</h1>
-          <p className="text-xs text-white/60">
+      <header className="sticky top-0 z-30 flex min-w-0 items-center justify-between gap-3 border-b border-[#D8D0BE] bg-[#0F3D2E] px-4 py-3 text-white lg:hidden">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-semibold">Booka</h1>
+          <p className="truncate text-xs text-white/60">
             {business?.name || "Business OS"}
           </p>
         </div>
@@ -75,7 +75,7 @@ export default function AppLayout() {
         <button
           type="button"
           onClick={() => setSidebarOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium"
         >
           <Menu className="h-4 w-4" />
           Menu
@@ -94,20 +94,22 @@ export default function AppLayout() {
 
       {/* SIDEBAR */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-col bg-[#0F3D2E] p-5 text-white shadow-2xl transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-72 max-w-[85vw] flex-col bg-[#0F3D2E] p-5 text-white shadow-2xl transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:max-w-none lg:translate-x-0 lg:shadow-none ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* BRAND */}
         <div className="mb-8 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FAF7EF] text-[#0F3D2E]">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FAF7EF] text-[#0F3D2E]">
               <CalendarDays className="h-5 w-5" />
             </div>
 
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Booka</h1>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/55">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight">
+                Booka
+              </h1>
+              <p className="truncate text-xs font-medium uppercase tracking-[0.18em] text-white/55">
                 Business OS
               </p>
             </div>
@@ -116,7 +118,7 @@ export default function AppLayout() {
           <button
             type="button"
             onClick={closeSidebar}
-            className="rounded-lg bg-white/10 p-2 text-white/80 hover:bg-white/15 lg:hidden"
+            className="shrink-0 rounded-lg bg-white/10 p-2 text-white/80 hover:bg-white/15 lg:hidden"
             aria-label="Close menu"
           >
             <X className="h-4 w-4" />
@@ -125,7 +127,7 @@ export default function AppLayout() {
 
         {/* ACTIVE BUSINESS CARD */}
         {business && (
-          <div className="mb-6 rounded-xl border border-white/10 bg-white/10 p-4">
+          <div className="mb-6 min-w-0 rounded-xl border border-white/10 bg-white/10 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-white/50">
               Active Business
             </p>
@@ -139,7 +141,7 @@ export default function AppLayout() {
         )}
 
         {/* NAVIGATION */}
-        <nav className="flex-1 space-y-1 overflow-y-auto">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wide text-white/45">
             Main
           </p>
@@ -154,15 +156,15 @@ export default function AppLayout() {
                 onClick={closeSidebar}
                 className={({ isActive }) =>
                   [
-                    "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition",
+                    "flex min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition",
                     isActive
                       ? "bg-[#FAF7EF] text-[#0F3D2E] shadow-sm"
                       : "text-white/75 hover:bg-white/10 hover:text-white",
                   ].join(" ")
                 }
               >
-                <Icon className="h-4 w-4" />
-                {item.label}
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{item.label}</span>
               </NavLink>
             );
           })}
@@ -174,19 +176,19 @@ export default function AppLayout() {
           <NavLink
             to={activeSlug ? `/b/${activeSlug}` : "/"}
             onClick={closeSidebar}
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
+            className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
           >
-            <ExternalLink className="h-4 w-4" />
-            Public Booking Page
+            <ExternalLink className="h-4 w-4 shrink-0" />
+            <span className="truncate">Public Booking Page</span>
           </NavLink>
         </nav>
 
         {/* QUICK ACTIONS */}
         {activeSlug && (
           <div className="space-y-3 border-t border-white/10 pt-4">
-            <div className="rounded-xl bg-black/10 p-3">
+            <div className="min-w-0 rounded-xl bg-black/10 p-3">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium text-white/55">
-                <LinkIcon className="h-3.5 w-3.5" />
+                <LinkIcon className="h-3.5 w-3.5 shrink-0" />
                 Booking Link
               </div>
 
@@ -200,12 +202,12 @@ export default function AppLayout() {
             >
               {copied ? (
                 <>
-                  <Check className="h-4 w-4" />
+                  <Check className="h-4 w-4 shrink-0" />
                   Copied
                 </>
               ) : (
                 <>
-                  <Clipboard className="h-4 w-4" />
+                  <Clipboard className="h-4 w-4 shrink-0" />
                   Copy Link
                 </>
               )}
@@ -219,15 +221,15 @@ export default function AppLayout() {
               rel="noreferrer"
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              <Share2 className="h-4 w-4" />
-              Share on WhatsApp
+              <Share2 className="h-4 w-4 shrink-0" />
+              <span className="truncate">Share on WhatsApp</span>
             </a>
           </div>
         )}
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
     </div>

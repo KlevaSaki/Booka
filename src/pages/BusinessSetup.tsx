@@ -107,7 +107,7 @@ export default function BusinessSetup() {
 
   if (!business) {
     return (
-      <main className="min-h-screen bg-[#FAF7EF] px-4 py-16">
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-4 py-16">
         <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
           <h1 className="text-xl font-semibold text-gray-950">
             Business not found
@@ -223,13 +223,13 @@ export default function BusinessSetup() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10";
+    "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
 
   return (
-    <main className="min-h-screen bg-[#FAF7EF] px-0 py-0 text-gray-900 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
+    <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-0 py-0 text-gray-900 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto min-w-0 max-w-6xl">
         <section className="bg-white p-5 shadow-sm sm:rounded-2xl sm:border sm:border-[#D8D0BE] sm:p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-[#0F3D2E]">
                 Business setup
@@ -239,7 +239,7 @@ export default function BusinessSetup() {
                 Welcome, {business.name}
               </h1>
 
-              <div className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">
+              <div className="mt-3 flex min-w-0 flex-wrap gap-2 text-sm text-gray-600">
                 <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#FAF7EF] px-3 py-1">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{business.location}</span>
@@ -252,7 +252,7 @@ export default function BusinessSetup() {
               </div>
             </div>
 
-            <div className="w-full md:max-w-xs">
+            <div className="w-full min-w-0 md:max-w-xs">
               <div className="mb-2 flex justify-between text-xs font-medium text-gray-500">
                 <span>Setup progress</span>
                 <span>{setupProgress}%</span>
@@ -268,7 +268,7 @@ export default function BusinessSetup() {
           </div>
         </section>
 
-        <div className="grid gap-6 py-6 sm:py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid min-w-0 gap-6 py-6 sm:py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <form
             onSubmit={handleSubmit}
             className="min-w-0 space-y-5 bg-white p-5 shadow-sm sm:rounded-2xl sm:border sm:border-[#D8D0BE] sm:p-6"
@@ -347,7 +347,7 @@ export default function BusinessSetup() {
                 </span>
               </div>
 
-              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_150px_auto]">
+              <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_150px_auto]">
                 <input
                   type="text"
                   value={serviceInput}
@@ -371,7 +371,7 @@ export default function BusinessSetup() {
                   onClick={addService}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23] md:w-auto"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 shrink-0" />
                   Add
                 </button>
               </div>
@@ -431,7 +431,7 @@ export default function BusinessSetup() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 xs:grid-cols-4 sm:flex sm:flex-wrap">
+              <div className="grid grid-cols-3 gap-2 min-[420px]:grid-cols-4 sm:flex sm:flex-wrap">
                 {DAYS.map((day) => {
                   const selected = workingDays.includes(day);
 
@@ -453,8 +453,8 @@ export default function BusinessSetup() {
               </div>
             </section>
 
-            <section className="grid gap-4 sm:grid-cols-2">
-              <div>
+            <section className="grid min-w-0 gap-4 sm:grid-cols-2">
+              <div className="min-w-0">
                 <label className="mb-2 block text-sm font-semibold">
                   Opening time
                 </label>
@@ -472,7 +472,7 @@ export default function BusinessSetup() {
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="mb-2 block text-sm font-semibold">
                   Closing time
                 </label>
@@ -499,14 +499,14 @@ export default function BusinessSetup() {
             </button>
           </form>
 
-          <aside className="space-y-4 px-0 lg:sticky lg:top-6 lg:self-start">
+          <aside className="min-w-0 space-y-4 px-0 lg:sticky lg:top-6 lg:self-start">
             <div className="bg-white p-5 shadow-sm sm:rounded-2xl sm:border sm:border-[#D8D0BE] sm:p-6">
               <h2 className="text-lg font-semibold text-gray-950">
                 Setup summary
               </h2>
 
               <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-1">
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                   <BriefcaseBusiness className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
                   <div className="min-w-0">
                     <p className="font-medium">Department</p>
@@ -516,7 +516,7 @@ export default function BusinessSetup() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
                   <div className="min-w-0">
                     <p className="font-medium">Services</p>
@@ -530,7 +530,7 @@ export default function BusinessSetup() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                   <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
                   <div className="min-w-0">
                     <p className="font-medium">Working days</p>
@@ -542,7 +542,7 @@ export default function BusinessSetup() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                   <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
                   <div className="min-w-0">
                     <p className="font-medium">Hours</p>

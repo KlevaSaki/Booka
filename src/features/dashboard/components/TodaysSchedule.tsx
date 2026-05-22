@@ -6,11 +6,29 @@ import { useBookingStore } from "../../bookings/store";
 import { useBusinessStore } from "../../business/store";
 
 function toDateKey(date: Date) {
-  return date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateKeyLabel(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function getDateKeyFromBooking(booking: any) {
-  return booking.date || booking.bookingDate || toDateKey(new Date());
+  if (booking.datetime) return toDateKey(new Date(booking.datetime));
+  if (booking.date) return booking.date;
+  if (booking.bookingDate) return booking.bookingDate;
+
+  return toDateKey(new Date());
 }
 
 function getServiceName(service: any) {
@@ -30,6 +48,15 @@ function getSlotsPerDay(open?: string, close?: string) {
   if (closeTotal <= openTotal) return 8;
 
   return Math.max(1, Math.floor((closeTotal - openTotal) / 60));
+}
+
+function formatBookingTime(datetime?: string) {
+  if (!datetime) return "";
+
+  return new Date(datetime).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default function TodaySchedule() {
@@ -68,12 +95,6 @@ export default function TodaySchedule() {
     business?.workingHours?.open,
     business?.workingHours?.close
   );
-
-  // const monthStart = new Date(
-  //   visibleMonth.getFullYear(),
-  //   visibleMonth.getMonth(),
-  //   1
-  // );
 
   const monthLabel = visibleMonth.toLocaleDateString("en-US", {
     month: "long",
@@ -114,13 +135,13 @@ export default function TodaySchedule() {
   }
 
   return (
-    <div className="mt-6 space-y-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+    <div className="mt-6 min-w-0 space-y-5 overflow-x-hidden">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-xl font-semibold text-[#0F3D2E]">
             Booking Calendar
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500">
             Track daily bookings and spot fully booked days.
           </p>
         </div>
@@ -128,43 +149,46 @@ export default function TodaySchedule() {
         <button
           type="button"
           onClick={goToToday}
-          className="w-fit rounded-lg border border-[#0F3D2E]/20 bg-white px-3 py-2 text-sm font-medium text-[#0F3D2E] hover:bg-[#FAF7EF]"
+          className="w-full rounded-lg border border-[#0F3D2E]/20 bg-white px-3 py-2 text-sm font-medium text-[#0F3D2E] transition hover:bg-[#FAF7EF] sm:w-fit"
         >
           Today
         </button>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
-          <div className="mb-5 flex items-center justify-between">
+          <div className="mb-5 flex min-w-0 items-center justify-between gap-2">
             <button
               type="button"
               onClick={goToPreviousMonth}
-              className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
+              className="shrink-0 rounded-lg border px-3 py-2 text-sm transition hover:bg-gray-50"
             >
-              Previous
+              <span className="sm:hidden">Prev</span>
+              <span className="hidden sm:inline">Previous</span>
             </button>
 
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="min-w-0 truncate text-center text-base font-semibold text-gray-900 sm:text-lg">
               {monthLabel}
             </h3>
 
             <button
               type="button"
               onClick={goToNextMonth}
-              className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
+              className="shrink-0 rounded-lg border px-3 py-2 text-sm transition hover:bg-gray-50"
             >
               Next
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-400 sm:gap-2 sm:text-xs">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div key={day}>{day}</div>
+              <div key={day} className="truncate">
+                {day}
+              </div>
             ))}
           </div>
 
-          <div className="mt-2 grid grid-cols-7 gap-2">
+          <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">
             {calendarDays.map((date) => {
               const dateKey = toDateKey(date);
               const dayBookings = bookingsByDate[dateKey] || [];
@@ -190,7 +214,7 @@ export default function TodaySchedule() {
                   type="button"
                   onClick={() => setSelectedDate(dateKey)}
                   className={[
-                    "min-h-20 rounded-xl border p-2 text-left transition",
+                    "min-h-14 min-w-0 rounded-lg border p-1 text-left transition sm:min-h-20 sm:rounded-xl sm:p-2",
                     isSelected
                       ? "border-[#0F3D2E] ring-2 ring-[#0F3D2E]/20"
                       : "border-gray-200",
@@ -201,10 +225,10 @@ export default function TodaySchedule() {
                       : "bg-gray-50 text-gray-300",
                   ].join(" ")}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex min-w-0 items-start justify-between gap-1">
                     <span
                       className={[
-                        "flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold",
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold sm:h-7 sm:w-7 sm:text-sm",
                         isToday ? "bg-[#0F3D2E] text-white" : "",
                       ].join(" ")}
                     >
@@ -214,7 +238,7 @@ export default function TodaySchedule() {
                     {dayBookings.length > 0 && (
                       <span
                         className={[
-                          "rounded-full px-2 py-0.5 text-xs font-semibold",
+                          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:px-2 sm:text-xs",
                           isFullyBooked
                             ? "bg-red-600 text-white"
                             : "bg-[#0F3D2E]/10 text-[#0F3D2E]",
@@ -226,7 +250,9 @@ export default function TodaySchedule() {
                   </div>
 
                   {isFullyBooked && (
-                    <p className="mt-3 text-xs font-semibold">Fully booked</p>
+                    <p className="mt-2 hidden text-xs font-semibold sm:block">
+                      Fully booked
+                    </p>
                   )}
                 </button>
               );
@@ -235,14 +261,10 @@ export default function TodaySchedule() {
         </Card>
 
         <Card>
-          <div className="mb-4">
+          <div className="mb-4 min-w-0">
             <p className="text-sm text-gray-500">Selected day</p>
             <h3 className="text-lg font-semibold text-gray-900">
-              {new Date(selectedDate).toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })}
+              {formatDateKeyLabel(selectedDate)}
             </h3>
             <p className="mt-1 text-sm text-gray-500">
               {selectedBookings.length} of {slotsPerDay} slots booked
@@ -257,28 +279,27 @@ export default function TodaySchedule() {
             <div className="space-y-3">
               {selectedBookings
                 .slice()
-                .sort((a, b) => String(a.datetime).localeCompare(String(b.datetime)))
+                .sort((a, b) =>
+                  String(a.datetime).localeCompare(String(b.datetime))
+                )
                 .map((booking) => (
                   <div
                     key={booking.id}
-                    className="rounded-xl border border-gray-200 bg-white p-4"
+                    className="min-w-0 rounded-xl border border-gray-200 bg-white p-4"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-gray-900">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-gray-900">
                           {booking.name}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="truncate text-sm text-gray-500">
                           {getServiceName(booking.service)}
                         </p>
                       </div>
 
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <p className="text-sm font-medium text-gray-900">
-                          {new Date(booking.datetime).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                          })}
+                          {formatBookingTime(booking.datetime)}
                         </p>
                         <Badge text="confirmed" type="success" />
                       </div>

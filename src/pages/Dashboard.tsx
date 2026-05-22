@@ -20,7 +20,11 @@ function timeToMinutes(time: string) {
 }
 
 function getDateKey(date: Date) {
-  return date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(datetime?: string) {
@@ -128,8 +132,8 @@ export default function Dashboard() {
 
   if (!business) {
     return (
-      <main className="min-h-screen bg-[#FAF7EF] p-6">
-        <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-8 text-center shadow-sm">
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] p-4 sm:p-6">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-gray-950">
             Business not found
           </h2>
@@ -153,7 +157,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6 overflow-x-hidden">
       <section className="overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-sm">
         <div className="relative min-h-64 bg-[#0F3D2E]">
           {business.images?.[0] && (
@@ -167,8 +171,8 @@ export default function Dashboard() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
 
           <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <div
                   className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                     status === "Open"
@@ -179,14 +183,14 @@ export default function Dashboard() {
                   {status}
                 </div>
 
-                <h1 className="max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+                <h1 className="max-w-2xl break-words text-3xl font-semibold tracking-tight sm:text-4xl">
                   {business.name}
                 </h1>
 
-                <div className="mt-3 flex flex-wrap gap-3 text-sm text-white/75">
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {business.location}
+                <div className="mt-3 flex min-w-0 flex-wrap gap-3 text-sm text-white/75">
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{business.location}</span>
                   </span>
 
                   {business.department && (
@@ -199,15 +203,15 @@ export default function Dashboard() {
 
               <Link
                 to={`/settings/${business.slug}`}
-                className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#FAF7EF] px-4 py-3 text-sm font-semibold text-[#0F3D2E] transition hover:bg-white"
+                className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#FAF7EF] px-4 py-3 text-sm font-semibold text-[#0F3D2E] transition hover:bg-white sm:w-fit"
               >
-                <Settings className="h-4 w-4" />
+                <Settings className="h-4 w-4 shrink-0" />
                 Settings
               </Link>
             </div>
 
             {business.description && (
-              <p className="mt-8 max-w-2xl text-sm leading-6 text-white/75 sm:text-base">
+              <p className="mt-8 max-w-2xl break-words text-sm leading-6 text-white/75 sm:text-base">
                 {business.description}
               </p>
             )}
@@ -215,44 +219,44 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
-            <CalendarDays className="h-4 w-4 text-[#0F3D2E]" />
+            <CalendarDays className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
             Today
           </p>
-          <p className="mt-3 text-3xl font-semibold text-gray-950">
+          <p className="mt-3 truncate text-3xl font-semibold text-gray-950">
             {todayBookings.length}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+        <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
-            <Clipboard className="h-4 w-4 text-[#0F3D2E]" />
+            <Clipboard className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
             Total Bookings
           </p>
-          <p className="mt-3 text-3xl font-semibold text-gray-950">
+          <p className="mt-3 truncate text-3xl font-semibold text-gray-950">
             {businessBookings.length}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+        <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
-            <Wallet className="h-4 w-4 text-[#0F3D2E]" />
+            <Wallet className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
             Estimated Revenue
           </p>
-          <p className="mt-3 text-2xl font-semibold text-gray-950">
+          <p className="mt-3 truncate text-2xl font-semibold text-gray-950">
             {formatPrice(totalRevenue)}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+        <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
-            <Clock className="h-4 w-4 text-[#0F3D2E]" />
+            <Clock className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
             Business Status
           </p>
           <p
-            className={`mt-3 text-3xl font-semibold ${
+            className={`mt-3 truncate text-3xl font-semibold ${
               status === "Open" ? "text-green-600" : "text-red-500"
             }`}
           >
@@ -261,29 +265,29 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-gray-950">
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-6">
+          <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+              <h2 className="min-w-0 truncate text-lg font-semibold text-gray-950">
                 Services Offered
               </h2>
-              <span className="rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
+              <span className="shrink-0 rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
                 {business.services?.length || 0} services
               </span>
             </div>
 
             {business.services?.length ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                 {business.services.map((service) => (
                   <div
                     key={service.name}
-                    className="rounded-xl border border-gray-200 bg-[#FAF7EF] p-4"
+                    className="min-w-0 rounded-xl border border-gray-200 bg-[#FAF7EF] p-4"
                   >
-                    <p className="font-semibold text-gray-950">
+                    <p className="truncate font-semibold text-gray-950">
                       {service.name}
                     </p>
-                    <p className="mt-1 text-sm font-medium text-[#0F3D2E]">
+                    <p className="mt-1 truncate text-sm font-medium text-[#0F3D2E]">
                       {formatPrice(service.price)}
                     </p>
                   </div>
@@ -294,7 +298,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+          <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Upcoming Bookings
             </h2>
@@ -304,18 +308,18 @@ export default function Dashboard() {
                 {upcomingBookings.map((booking) => (
                   <div
                     key={booking.id}
-                    className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex min-w-0 flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div>
-                      <p className="font-semibold text-gray-950">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-gray-950">
                         {booking.name}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="truncate text-sm text-gray-500">
                         {booking.service}
                       </p>
                     </div>
 
-                    <div className="text-sm text-gray-600 sm:text-right">
+                    <div className="shrink-0 text-sm text-gray-600 sm:text-right">
                       <p className="font-medium text-gray-950">
                         {formatDate(booking.datetime)}
                       </p>
@@ -332,17 +336,17 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+        <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
+          <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Business Schedule
             </h2>
 
             {business.workingHours ? (
               <div className="mt-4 space-y-4 text-sm">
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium text-gray-950">Working Days</p>
-                  <p className="mt-1 text-gray-500">
+                  <p className="mt-1 break-words text-gray-500">
                     {business.workingHours.days?.join(", ")}
                   </p>
                 </div>
@@ -361,12 +365,12 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+          <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Share Your Business
             </h2>
 
-            <div className="mt-4 rounded-xl bg-[#FAF7EF] p-3">
+            <div className="mt-4 min-w-0 rounded-xl bg-[#FAF7EF] p-3">
               <p className="truncate text-sm text-gray-600">{bookingLink}</p>
             </div>
 
@@ -374,16 +378,16 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={copyBookingLink}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
+                className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
               >
                 {copied ? (
                   <>
-                    <Check className="h-4 w-4" />
+                    <Check className="h-4 w-4 shrink-0" />
                     Copied
                   </>
                 ) : (
                   <>
-                    <Clipboard className="h-4 w-4" />
+                    <Clipboard className="h-4 w-4 shrink-0" />
                     Copy Link
                   </>
                 )}
@@ -395,18 +399,18 @@ export default function Dashboard() {
                 )}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#0F3D2E]/20 px-4 py-3 text-sm font-semibold text-[#0F3D2E] transition hover:bg-[#FAF7EF]"
+                className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-[#0F3D2E]/20 px-4 py-3 text-sm font-semibold text-[#0F3D2E] transition hover:bg-[#FAF7EF]"
               >
-                <Share2 className="h-4 w-4" />
-                Share on WhatsApp
+                <Share2 className="h-4 w-4 shrink-0" />
+                <span className="truncate">Share on WhatsApp</span>
               </a>
 
               <Link
                 to={`/b/${business.slug}`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
-                <ExternalLink className="h-4 w-4" />
-                View Public Page
+                <ExternalLink className="h-4 w-4 shrink-0" />
+                <span className="truncate">View Public Page</span>
               </Link>
             </div>
           </div>

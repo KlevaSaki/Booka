@@ -13,9 +13,8 @@ export type Business = {
   bookingLink: string;
   password: string;
 
-  //settings
   department?: string;
-  services: { name: string; price: number}[];
+  services: { name: string; price: number }[];
   workingHours?: {
     days: string[];
     open: string;
@@ -23,14 +22,17 @@ export type Business = {
   };
   isSetupComplete: boolean;
   socialLinks?: {
-  instagram?: string;
-  facebook?: string;
-  website?: string;
-};
+    instagram?: string;
+    facebook?: string;
+    website?: string;
+  };
 };
 
 const STORAGE_KEY = "booka_businesses";
 const ACTIVE_KEY = "booka_active_business";
+
+const MAX_IMAGES_PER_BUSINESS = 4;
+const MAX_BASE64_IMAGE_LENGTH = 250_000;
 
 /* ---------------- LOAD HELPERS ---------------- */
 
@@ -43,8 +45,44 @@ function loadBusinesses(): Business[] {
   }
 }
 
+function isBase64Image(image: string) {
+  return image.startsWith("data:image/");
+}
+
+function trimImagesForStorage(images: string[] = []) {
+  return images
+    .filter(Boolean)
+    .slice(0, MAX_IMAGES_PER_BUSINESS)
+    .filter((image) => {
+      if (!isBase64Image(image)) return true;
+      return image.length <= MAX_BASE64_IMAGE_LENGTH;
+    });
+}
+
+function prepareBusinessesForStorage(businesses: Business[]) {
+  return businesses.map((business) => ({
+    ...business,
+    images: trimImagesForStorage(business.images),
+  }));
+}
+
 function saveBusinesses(businesses: Business[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(businesses));
+  const preparedBusinesses = prepareBusinessesForStorage(businesses);
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(preparedBusinesses));
+    return preparedBusinesses;
+  } catch (error) {
+    console.warn("Storage quota exceeded. Saving businesses without images.", error);
+
+    const businessesWithoutImages = businesses.map((business) => ({
+      ...business,
+      images: [],
+    }));
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(businessesWithoutImages));
+    return businessesWithoutImages;
+  }
 }
 
 function loadActiveBusiness(): string | null {
@@ -74,11 +112,7 @@ type Store = {
 
   getBusinessBySlug: (slug: string) => Business | undefined;
 
-
-  updateBusiness: (
-    slug: string,
-    data: Partial<Business>
-  ) => void;
+  updateBusiness: (slug: string, data: Partial<Business>) => void;
 };
 
 /* ---------------- INITIAL STATE ---------------- */
@@ -86,8 +120,7 @@ type Store = {
 const businesses = loadBusinesses();
 const activeSlug = loadActiveBusiness();
 
-const activeBusiness =
-  businesses.find((b) => b.slug === activeSlug) || null;
+const activeBusiness = businesses.find((b) => b.slug === activeSlug) || null;
 
 /* ---------------- STORE ---------------- */
 
@@ -95,8 +128,6 @@ export const useBusinessStore = create<Store>((set, get) => ({
   businesses,
   currentBusiness: activeBusiness,
   activeBusinessSlug: activeSlug,
-
-  /* ---------- CREATE BUSINESS ---------- */
 
   setBusiness: (businessData) => {
     const slug = createSlug(businessData.name);
@@ -109,26 +140,26 @@ export const useBusinessStore = create<Store>((set, get) => ({
     };
 
     const updated = [...get().businesses, newBusiness];
+    const savedBusinesses = saveBusinesses(updated);
 
-    saveBusinesses(updated);
-    saveActiveBusiness(slug); // ⭐ persist active business
+    saveActiveBusiness(slug);
+
+    const savedBusiness =
+      savedBusinesses.find((business) => business.slug === slug) || newBusiness;
 
     set({
-      businesses: updated,
-      currentBusiness: newBusiness,
+      businesses: savedBusinesses,
+      currentBusiness: savedBusiness,
       activeBusinessSlug: slug,
     });
 
-    return newBusiness;
+    return savedBusiness;
   },
 
-  /* ---------- SWITCH BUSINESS ---------- */
-
   setActiveBusiness: (slug) => {
-    const business =
-      get().businesses.find((b) => b.slug === slug) || null;
+    const business = get().businesses.find((b) => b.slug === slug) || null;
 
-    saveActiveBusiness(slug); // ⭐ persist selection
+    saveActiveBusiness(slug);
 
     set({
       activeBusinessSlug: slug,
@@ -136,27 +167,23 @@ export const useBusinessStore = create<Store>((set, get) => ({
     });
   },
 
-  /* ---------- GET BUSINESS ---------- */
-
   getBusinessBySlug: (slug) => {
     return get().businesses.find((b) => b.slug === slug);
   },
 
-  /* ---------- UPDATE BUSINESS ---------- */
+  updateBusiness: (slug, data) => {
+    const updatedBusinesses = get().businesses.map((b) =>
+      b.slug === slug ? { ...b, ...data } : b
+    );
 
-updateBusiness: (slug, data) => {
-  const updatedBusinesses = get().businesses.map((b) =>
-    b.slug === slug ? { ...b, ...data } : b
-  );
+    const savedBusinesses = saveBusinesses(updatedBusinesses);
 
-  saveBusinesses(updatedBusinesses);
+    const updatedCurrent =
+      savedBusinesses.find((b) => b.slug === slug) || null;
 
-  const updatedCurrent =
-    updatedBusinesses.find((b) => b.slug === slug) || null;
-
-  set({
-    businesses: updatedBusinesses,
-    currentBusiness: updatedCurrent,
-  });
-},
+    set({
+      businesses: savedBusinesses,
+      currentBusiness: updatedCurrent,
+    });
+  },
 }));

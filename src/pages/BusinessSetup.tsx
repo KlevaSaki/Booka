@@ -52,7 +52,7 @@ const TIMES = [
   "21:00",
   "22:00",
   "23:00",
-  "00:00"
+  "23:59"
 ];
 
 function timeToMinutes(time: string) {
@@ -152,6 +152,8 @@ export default function BusinessSetup() {
     e.preventDefault();
     setError("");
 
+    console.log("button pressed")
+
     if (!department) {
       setError("Please select a department.");
       return;
@@ -172,47 +174,87 @@ export default function BusinessSetup() {
       return;
     }
 
-    updateBusiness(slug!, {
-      department,
-      services,
-      workingHours: {
-        days: workingDays,
-        open: openTime,
-        close: closeTime,
-      },
-      socialLinks: {
-        instagram: formatOptionalUrl(instagram),
-        facebook: formatOptionalUrl(facebook),
-        website: formatOptionalUrl(website),
-      },
-      images,
-      isSetupComplete: true,
-    });
+    try {
+  updateBusiness(slug!, {
+    department,
+    services,
+    workingHours: {
+      days: workingDays,
+      open: openTime,
+      close: closeTime,
+    },
+    socialLinks: {
+      instagram: formatOptionalUrl(instagram),
+      facebook: formatOptionalUrl(facebook),
+      website: formatOptionalUrl(website),
+    },
+    images: images.filter(Boolean),
+    isSetupComplete: true,
+  });
 
-    navigate(`/dashboard/${slug}`);
+  navigate(`/dashboard/${slug}`);
+} catch (error) {
+  console.error(error);
+  setError("Something went wrong while saving your setup. Try using smaller images.");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
   }
 
-  function handleImageUpload(
-    e: ChangeEvent<HTMLInputElement>,
-    imageIndex: number
-  ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  function compressImage(file: File, maxWidth = 1000, quality = 0.7) {
+  return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onloadend = () => {
-      const result = reader.result as string;
+    reader.onload = () => {
+      const img = new Image();
 
-      setImages((prev) => {
-        const next = [...prev];
-        next[imageIndex] = result;
-        return next.slice(0, 4);
-      });
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+
+        const scale = Math.min(1, maxWidth / img.width);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+
+        const ctx = canvas.getContext("2d");
+
+        if (!ctx) {
+          reject(new Error("Could not prepare image"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+
+      img.onerror = () => reject(new Error("Could not load image"));
+      img.src = reader.result as string;
     };
 
+    reader.onerror = () => reject(new Error("Could not read image"));
     reader.readAsDataURL(file);
+  });
+}
+
+  async function handleImageUpload(
+  e: ChangeEvent<HTMLInputElement>,
+  imageIndex: number
+) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const compressedImage = await compressImage(file);
+
+    setImages((prev) => {
+      const next = [...prev];
+      next[imageIndex] = compressedImage;
+      return next.slice(0, 4);
+    });
+  } catch (error) {
+    console.error(error);
+    setError("Could not upload image. Please try another photo.");
   }
+}
 
   function removeImage(imageIndex: number) {
     setImages((prev) => {

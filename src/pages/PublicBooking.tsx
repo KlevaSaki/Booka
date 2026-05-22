@@ -63,11 +63,38 @@ function BookingExperience({ business }: { business: Business }) {
   const [error, setError] = useState("");
   const [confirmed, setConfirmed] = useState(false);
 
+  const businessImages = useMemo(() => {
+    return (business.images || []).filter(Boolean).slice(0, 4);
+  }, [business.images]);
+
+  const mainImage = businessImages[0];
+  const galleryImages = businessImages.slice(1, 4);
+
   const selectedServiceDetails = useMemo(() => {
     return business.services?.find(
       (service: any) => getServiceName(service) === selectedService
     );
   }, [business.services, selectedService]);
+
+  const socialLinks = useMemo(() => {
+    return [
+      {
+        label: "Instagram",
+        href: business.socialLinks?.instagram,
+        icon: MessageCircle,
+      },
+      {
+        label: "Facebook",
+        href: business.socialLinks?.facebook,
+        icon: Share2,
+      },
+      {
+        label: "Website",
+        href: business.socialLinks?.website,
+        icon: Globe,
+      },
+    ].filter((link) => Boolean(link.href));
+  }, [business.socialLinks]);
 
   const timeSlots = useMemo(() => {
     const open = business.workingHours?.open;
@@ -103,7 +130,6 @@ function BookingExperience({ business }: { business: Business }) {
   }, [bookings, business.slug, date]);
 
   const availableSlots = timeSlots.filter((slot) => !bookedTimes.includes(slot));
-  const galleryImages = business.images?.slice(1, 4) || [];
 
   const inputClass =
     "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
@@ -138,9 +164,9 @@ function BookingExperience({ business }: { business: Business }) {
       <section className="overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-sm">
         <div className="grid min-w-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
           <div className="relative h-72 min-w-0 bg-[#0F3D2E] sm:h-96">
-            {business.images?.[0] ? (
+            {mainImage ? (
               <img
-                src={business.images[0]}
+                src={mainImage}
                 alt={business.name}
                 className="absolute inset-0 h-full w-full object-cover"
               />
@@ -215,7 +241,7 @@ function BookingExperience({ business }: { business: Business }) {
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center px-2 text-center text-xs font-medium text-gray-400">
-                          Photo {index + 1}
+                          Photo {index + 2}
                         </div>
                       )}
                     </div>
@@ -223,29 +249,26 @@ function BookingExperience({ business }: { business: Business }) {
                 })}
               </div>
 
-              <div className="mt-4 flex min-w-0 flex-wrap gap-2">
-                <a
-                  href="#"
-                  className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                >
-                  <MessageCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">Instagram</span>
-                </a>
-                <a
-                  href="#"
-                  className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                >
-                  <Share2 className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">Facebook</span>
-                </a>
-                <a
-                  href="#"
-                  className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                >
-                  <Globe className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">Website</span>
-                </a>
-              </div>
+              {socialLinks.length > 0 && (
+                <div className="mt-4 flex min-w-0 flex-wrap gap-2">
+                  {socialLinks.map((link) => {
+                    const Icon = link.icon;
+
+                    return (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{link.label}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

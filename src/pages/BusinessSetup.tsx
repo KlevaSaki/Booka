@@ -6,9 +6,12 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
+  Globe,
   ImagePlus,
   MapPin,
+  MessageCircle,
   Plus,
+  Share2,
   Trash2,
   User,
 } from "lucide-react";
@@ -30,6 +33,7 @@ const DAYS = [
 ];
 
 const TIMES = [
+  "05:00",
   "06:00",
   "07:00",
   "08:00",
@@ -45,6 +49,10 @@ const TIMES = [
   "18:00",
   "19:00",
   "20:00",
+  "21:00",
+  "22:00",
+  "23:00",
+  "00:00"
 ];
 
 function timeToMinutes(time: string) {
@@ -59,11 +67,22 @@ function formatPrice(price: number) {
   })}`;
 }
 
+function formatOptionalUrl(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
 export default function BusinessSetup() {
   const { slug } = useParams();
   const navigate = useNavigate();
 
-  const [image, setImage] = useState("");
+  const [images, setImages] = useState<string[]>(["", "", "", ""]);
   const [department, setDepartment] = useState("");
   const [serviceInput, setServiceInput] = useState("");
   const [servicePriceInput, setServicePriceInput] = useState("");
@@ -71,6 +90,9 @@ export default function BusinessSetup() {
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const [openTime, setOpenTime] = useState("09:00");
   const [closeTime, setCloseTime] = useState("17:00");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [website, setWebsite] = useState("");
   const [error, setError] = useState("");
 
   const business = useBusinessStore((s) =>
@@ -79,9 +101,11 @@ export default function BusinessSetup() {
 
   const updateBusiness = useBusinessStore((s) => s.updateBusiness);
 
+  const uploadedImageCount = images.filter(Boolean).length;
+
   const setupProgress = useMemo(() => {
     const completed = [
-      Boolean(image),
+      uploadedImageCount > 0,
       Boolean(department),
       services.length > 0,
       workingDays.length > 0,
@@ -90,7 +114,7 @@ export default function BusinessSetup() {
 
     return Math.round((completed / 5) * 100);
   }, [
-    image,
+    uploadedImageCount,
     department,
     services.length,
     workingDays.length,
@@ -104,6 +128,10 @@ export default function BusinessSetup() {
     const total = services.reduce((sum, service) => sum + service.price, 0);
     return total / services.length;
   }, [services]);
+
+  const socialCount = [instagram, facebook, website].filter((link) =>
+    Boolean(link.trim())
+  ).length;
 
   if (!business) {
     return (
@@ -152,24 +180,46 @@ export default function BusinessSetup() {
         open: openTime,
         close: closeTime,
       },
-      images: image ? [image] : [],
+      socialLinks: {
+        instagram: formatOptionalUrl(instagram),
+        facebook: formatOptionalUrl(facebook),
+        website: formatOptionalUrl(website),
+      },
+      images,
       isSetupComplete: true,
     });
 
     navigate(`/dashboard/${slug}`);
   }
 
-  function handleImageUpload(e: ChangeEvent<HTMLInputElement>) {
+  function handleImageUpload(
+    e: ChangeEvent<HTMLInputElement>,
+    imageIndex: number
+  ) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
 
     reader.onloadend = () => {
-      setImage(reader.result as string);
+      const result = reader.result as string;
+
+      setImages((prev) => {
+        const next = [...prev];
+        next[imageIndex] = result;
+        return next.slice(0, 4);
+      });
     };
 
     reader.readAsDataURL(file);
+  }
+
+  function removeImage(imageIndex: number) {
+    setImages((prev) => {
+      const next = [...prev];
+      next[imageIndex] = "";
+      return next;
+    });
   }
 
   function addService() {
@@ -280,46 +330,113 @@ export default function BusinessSetup() {
             )}
 
             <section>
-              <label className="mb-2 block text-sm font-semibold">
-                Business image
-              </label>
-
-              {image ? (
-                <div className="group relative h-48 overflow-hidden rounded-2xl border sm:h-56 md:h-64">
-                  <img
-                    src={image}
-                    alt={business.name}
-                    className="h-full w-full object-cover"
-                  />
-
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={() => setImage("")}
-                      className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-red-600"
-                    >
-                      Remove image
-                    </button>
-                  </div>
+              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <label className="block text-sm font-semibold">
+                    Business images
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Add up to 4 photos. The first image is your main cover.
+                  </p>
                 </div>
-              ) : (
-                <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#D8D0BE] bg-[#FAF7EF] px-4 text-center transition hover:border-[#0F3D2E] sm:h-56 md:h-64">
-                  <ImagePlus className="mb-3 h-8 w-8 text-[#0F3D2E]" />
-                  <span className="text-sm font-semibold text-gray-800">
-                    Upload business image
-                  </span>
-                  <span className="mt-1 text-xs text-gray-500">
-                    JPG, PNG, or WebP
-                  </span>
 
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                </label>
-              )}
+                <span className="text-xs text-gray-500">
+                  {uploadedImageCount}/4 added
+                </span>
+              </div>
+
+              <div className="grid min-w-0 gap-3">
+                <div className="min-w-0">
+                  {images[0] ? (
+                    <div className="group relative h-48 overflow-hidden rounded-2xl border sm:h-56 md:h-64">
+                      <img
+                        src={images[0]}
+                        alt={`${business.name} main business image`}
+                        className="h-full w-full object-cover"
+                      />
+
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => removeImage(0)}
+                          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-red-600"
+                        >
+                          Remove image
+                        </button>
+                      </div>
+
+                      <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
+                        Main image
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#D8D0BE] bg-[#FAF7EF] px-4 text-center transition hover:border-[#0F3D2E] sm:h-56 md:h-64">
+                      <ImagePlus className="mb-3 h-8 w-8 text-[#0F3D2E]" />
+                      <span className="text-sm font-semibold text-gray-800">
+                        Upload main image
+                      </span>
+                      <span className="mt-1 text-xs text-gray-500">
+                        JPG, PNG, or WebP
+                      </span>
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(e, 0)}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {[1, 2, 3].map((imageIndex) => {
+                    const image = images[imageIndex];
+
+                    return (
+                      <div key={imageIndex} className="min-w-0">
+                        {image ? (
+                          <div className="group relative aspect-square overflow-hidden rounded-xl border">
+                            <img
+                              src={image}
+                              alt={`${business.name} supporting image ${imageIndex}`}
+                              className="h-full w-full object-cover"
+                            />
+
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+                              <button
+                                type="button"
+                                onClick={() => removeImage(imageIndex)}
+                                className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-red-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+
+                            <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              Photo {imageIndex + 1}
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#D8D0BE] bg-[#FAF7EF] px-2 text-center transition hover:border-[#0F3D2E]">
+                            <ImagePlus className="mb-1 h-5 w-5 text-[#0F3D2E]" />
+                            <span className="text-xs font-semibold text-gray-700">
+                              Photo {imageIndex + 1}
+                            </span>
+
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleImageUpload(e, imageIndex)}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </section>
 
             <section>
@@ -404,6 +521,53 @@ export default function BusinessSetup() {
                   ))}
                 </div>
               )}
+            </section>
+
+            <section>
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <label className="block text-sm font-semibold">
+                  Social links
+                </label>
+
+                <span className="text-xs text-gray-500">
+                  Optional, shown on your booking page
+                </span>
+              </div>
+
+              <div className="grid min-w-0 gap-3">
+                <div className="relative min-w-0">
+                  <MessageCircle className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="url"
+                    value={instagram}
+                    onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="Instagram link"
+                    className={`${inputClass} pl-10`}
+                  />
+                </div>
+
+                <div className="relative min-w-0">
+                  <Share2 className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="url"
+                    value={facebook}
+                    onChange={(e) => setFacebook(e.target.value)}
+                    placeholder="Facebook link"
+                    className={`${inputClass} pl-10`}
+                  />
+                </div>
+
+                <div className="relative min-w-0">
+                  <Globe className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="Website link"
+                    className={`${inputClass} pl-10`}
+                  />
+                </div>
+              </div>
             </section>
 
             <section>
@@ -507,6 +671,18 @@ export default function BusinessSetup() {
 
               <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-1">
                 <div className="flex min-w-0 items-start gap-3">
+                  <ImagePlus className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
+                  <div className="min-w-0">
+                    <p className="font-medium">Business photos</p>
+                    <p className="text-gray-500">
+                      {uploadedImageCount
+                        ? `${uploadedImageCount} of 4 photos added`
+                        : "No photos yet"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 items-start gap-3">
                   <BriefcaseBusiness className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
                   <div className="min-w-0">
                     <p className="font-medium">Department</p>
@@ -526,6 +702,18 @@ export default function BusinessSetup() {
                             averagePrice
                           )}`
                         : "No services yet"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 items-start gap-3">
+                  <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
+                  <div className="min-w-0">
+                    <p className="font-medium">Social links</p>
+                    <p className="text-gray-500">
+                      {socialCount
+                        ? `${socialCount} links added`
+                        : "No social links yet"}
                     </p>
                   </div>
                 </div>

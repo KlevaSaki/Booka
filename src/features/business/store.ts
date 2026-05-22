@@ -22,7 +22,11 @@ export type Business = {
     close: string;
   };
   isSetupComplete: boolean;
-  
+  socialLinks?: {
+  instagram?: string;
+  facebook?: string;
+  website?: string;
+};
 };
 
 const STORAGE_KEY = "booka_businesses";

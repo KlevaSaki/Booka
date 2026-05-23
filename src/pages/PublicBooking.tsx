@@ -1,19 +1,32 @@
-import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   CalendarDays,
   CheckCircle2,
   Clock,
   Globe,
   MapPin,
+  Menu,
   MessageCircle,
   Phone,
   Share2,
   User,
+  X,
 } from "lucide-react";
 import { useBusinessStore } from "../features/business/store";
 import type { Business } from "../features/business/store";
 import { useBookingStore } from "../features/bookings/store";
+
+type VisitedBusiness = {
+  slug: string;
+  name: string;
+  location?: string;
+  visitedAt: number;
+};
+
+const VISITED_BUSINESSES_KEY = "booka_visited_businesses";
+const BUSINESS_STATUSES_KEY = "booka_business_statuses";
+const STATUS_DURATION = 24 * 60 * 60 * 1000;
 
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
@@ -51,6 +64,55 @@ function getServicePrice(service: any) {
   return typeof service === "string" ? undefined : service.price;
 }
 
+function loadVisitedBusinesses(): VisitedBusiness[] {
+  try {
+    const data = localStorage.getItem(VISITED_BUSINESSES_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveVisitedBusiness(business: Business) {
+  const visited = loadVisitedBusinesses();
+
+  const next = [
+    {
+      slug: business.slug,
+      name: business.name,
+      location: business.location,
+      visitedAt: Date.now(),
+    },
+    ...visited.filter((item) => item.slug !== business.slug),
+  ].slice(0, 20);
+
+  localStorage.setItem(VISITED_BUSINESSES_KEY, JSON.stringify(next));
+  return next;
+}
+
+function getStatusMap(): Record<string, number> {
+  try {
+    const data = localStorage.getItem(BUSINESS_STATUSES_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getOrCreateStatusExpiry(slug: string) {
+  const now = Date.now();
+  const statuses = getStatusMap();
+  const currentExpiry = statuses[slug];
+
+  if (currentExpiry && currentExpiry > now) return currentExpiry;
+
+  const nextExpiry = now + STATUS_DURATION;
+  statuses[slug] = nextExpiry;
+  localStorage.setItem(BUSINESS_STATUSES_KEY, JSON.stringify(statuses));
+
+  return nextExpiry;
+}
+
 function BookingExperience({ business }: { business: Business }) {
   const addBooking = useBookingStore((s) => s.addBooking);
   const bookings = useBookingStore((s) => s.bookings);
@@ -62,6 +124,8 @@ function BookingExperience({ business }: { business: Business }) {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [statusExpiry, setStatusExpiry] = useState<number | null>(null);
+  const [statusOpen, setStatusOpen] = useState(false);
 
   const businessImages = useMemo(() => {
     return (business.images || []).filter(Boolean).slice(0, 4);
@@ -69,6 +133,12 @@ function BookingExperience({ business }: { business: Business }) {
 
   const mainImage = businessImages[0];
   const galleryImages = businessImages.slice(1, 4);
+
+  useEffect(() => {
+    setStatusExpiry(getOrCreateStatusExpiry(business.slug));
+  }, [business.slug]);
+
+  const showStatus = Boolean(statusExpiry && statusExpiry > Date.now());
 
   const selectedServiceDetails = useMemo(() => {
     return business.services?.find(
@@ -179,6 +249,17 @@ function BookingExperience({ business }: { business: Business }) {
             )}
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+            {showStatus && (
+              <button
+                type="button"
+                onClick={() => setStatusOpen(true)}
+                className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-[#0F3D2E] shadow-sm ring-2 ring-[#0F3D2E]"
+              >
+                <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                Status
+              </button>
+            )}
 
             <div className="absolute bottom-0 left-0 right-0 min-w-0 p-5 text-white sm:p-7">
               <h1 className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -499,15 +580,78 @@ function BookingExperience({ business }: { business: Business }) {
           </div>
         </aside>
       </div>
+
+      {statusOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-white">
+            <button
+              type="button"
+              onClick={() => setStatusOpen(false)}
+              className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white"
+              aria-label="Close status"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="relative h-[520px] bg-[#0F3D2E]">
+              {mainImage ? (
+                <img
+                  src={mainImage}
+                  alt={`${business.name} status`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center px-6 text-center text-white">
+                  <h2 className="text-3xl font-semibold">{business.name}</h2>
+                </div>
+              )}
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/35" />
+
+              <div className="absolute left-4 right-4 top-4 h-1 overflow-hidden rounded-full bg-white/30">
+                <div className="h-full w-full rounded-full bg-white" />
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+                <p className="text-xs font-medium uppercase tracking-wide text-white/70">
+                  Status
+                </p>
+                <h3 className="mt-1 text-2xl font-semibold">
+                  {business.name}
+                </h3>
+                <p className="mt-2 text-sm text-white/75">
+                  Available for 24 hours after you visit this business.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function PublicBooking() {
   const { slug } = useParams();
+  const navigate = useNavigate();
+
+  const [businessDrawerOpen, setBusinessDrawerOpen] = useState(false);
+  const [visitedBusinesses, setVisitedBusinesses] = useState<VisitedBusiness[]>(
+    () => loadVisitedBusinesses()
+  );
 
   const getBusinessBySlug = useBusinessStore((s) => s.getBusinessBySlug);
   const business = getBusinessBySlug(slug || "");
+
+  useEffect(() => {
+    if (!business) return;
+    setVisitedBusinesses(saveVisitedBusiness(business));
+  }, [business]);
+
+  function openBusiness(businessSlug: string) {
+    setBusinessDrawerOpen(false);
+    navigate(`/b/${businessSlug}`);
+  }
 
   if (!business) {
     return (
@@ -526,6 +670,84 @@ export default function PublicBooking() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+      <button
+        type="button"
+        onClick={() => setBusinessDrawerOpen(true)}
+        className="fixed right-4 top-4 z-40 inline-flex items-center gap-2 rounded-full bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white shadow-lg lg:hidden"
+      >
+        <Menu className="h-4 w-4" />
+        Businesses
+      </button>
+
+      {businessDrawerOpen && (
+        <button
+          type="button"
+          aria-label="Close businesses drawer"
+          onClick={() => setBusinessDrawerOpen(false)}
+          className="fixed inset-0 z-40 bg-black/45 lg:hidden"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-80 max-w-[88vw] flex-col bg-white p-5 shadow-2xl transition-transform duration-300 lg:hidden ${
+          businessDrawerOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-[#0F3D2E]">
+              Saved
+            </p>
+            <h2 className="text-xl font-semibold text-gray-950">
+              Businesses
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setBusinessDrawerOpen(false)}
+            className="rounded-xl bg-[#FAF7EF] p-2 text-[#0F3D2E]"
+            aria-label="Close businesses"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {visitedBusinesses.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-4 text-sm text-gray-500">
+            Visited businesses will appear here.
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+            {visitedBusinesses.map((visitedBusiness) => {
+              const isActive = visitedBusiness.slug === business.slug;
+
+              return (
+                <button
+                  key={visitedBusiness.slug}
+                  type="button"
+                  onClick={() => openBusiness(visitedBusiness.slug)}
+                  className={`w-full rounded-xl border p-4 text-left transition ${
+                    isActive
+                      ? "border-[#0F3D2E] bg-[#FAF7EF]"
+                      : "border-gray-200 bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  <p className="truncate font-semibold text-gray-950">
+                    {visitedBusiness.name}
+                  </p>
+                  {visitedBusiness.location && (
+                    <p className="mt-1 truncate text-sm text-gray-500">
+                      {visitedBusiness.location}
+                    </p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </aside>
+
       <BookingExperience business={business} />
     </main>
   );

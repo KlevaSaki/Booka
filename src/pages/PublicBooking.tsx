@@ -689,16 +689,16 @@ export default function PublicBooking() {
       )}
 
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-80 max-w-[88vw] flex-col bg-white p-5 shadow-2xl transition-transform duration-300 lg:hidden ${
+        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-80 max-w-[88vw] flex-col bg-[#0F3D2E] p-5 shadow-2xl transition-transform duration-300 lg:hidden ${
           businessDrawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-[#0F3D2E]">
+            <p className="text-xs font-medium uppercase tracking-wide text-white">
               Saved
             </p>
-            <h2 className="text-xl font-semibold text-gray-950">
+            <h2 className="text-xl font-semibold text-white">
               Businesses
             </h2>
           </div>

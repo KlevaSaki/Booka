@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase-client";
 import {
   ArrowRight,
   Building2,
@@ -57,59 +58,93 @@ export default function AuthPage() {
     return { label: "Strong password", width: "100%" };
   }, [form.password]);
 
-  function handleRegister(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
+  async function handleRegister(e: React.FormEvent) {
+  e.preventDefault();
+  setError("");
 
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    const emailExists = businesses.some(
-      (business) => business.email.toLowerCase() === form.email.toLowerCase()
-    );
-
-    if (emailExists) {
-      setError("A business with this email already exists.");
-      return;
-    }
-
-    const business = setBusiness({
-      name: form.businessName,
-      owner: form.owner,
-      phone: form.phone,
-      location: form.location,
-      description: form.description,
-      email: form.email,
-      password: form.password,
-      services: [],
-      images: [],
-      isSetupComplete: false,
-    });
-
-    setActiveBusiness(business.slug);
-    navigate(`/setup/${business.slug}`);
+  if (form.password !== form.confirmPassword) {
+    setError("Passwords do not match.");
+    return;
   }
 
-  function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
+  const slug = form.businessName.toLowerCase().trim().replace(/\s+/g, "-");
 
-    const business = businesses.find(
-      (b) =>
-        b.email.toLowerCase() === loginForm.email.toLowerCase() &&
-        b.password === loginForm.password
-    );
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: form.email,
+    password: form.password,
+  });
 
-    if (!business) {
-      setError("Invalid email or password.");
-      return;
-    }
-
-    setActiveBusiness(business.slug);
-    navigate(`/dashboard/${business.slug}`);
+  if (authError) {
+    setError(authError.message);
+    return;
   }
+
+  const user = authData.user;
+
+  if (!user) {
+    setError("Please check your email to confirm your account.");
+    return;
+  }
+
+  const { error: businessError } = await supabase.from("businesses").insert({
+    user_id: user.id,
+    name: form.businessName,
+    owner: form.owner,
+    phone: form.phone,
+    location: form.location,
+    description: form.description,
+    email: form.email,
+    slug,
+    booking_link: `/b/${slug}`,
+    images: [],
+    services: [],
+    is_setup_complete: false,
+  });
+
+  if (businessError) {
+    setError(businessError.message);
+    return;
+  }
+
+  navigate(`/setup/${slug}`);
+}
+
+  async function handleLogin(e: React.FormEvent) {
+  e.preventDefault();
+  setError("");
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: loginForm.email,
+    password: loginForm.password,
+  });
+
+  if (error) {
+    setError(error.message);
+    return;
+  }
+
+  const user = data.user;
+
+  const { data: businesses, error: businessError } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("user_id", user.id)
+    .limit(1);
+
+  if (businessError) {
+    setError(businessError.message);
+    return;
+  }
+
+  const business = businesses?.[0];
+
+  if (!business) {
+    setError("No business profile found for this account.");
+    return;
+  }
+
+  navigate(`/dashboard/${business.slug}`);
+}
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({
@@ -117,6 +152,40 @@ export default function AuthPage() {
       [e.target.name]: e.target.value,
     });
   }
+
+  async function handleForgotPassword() {
+  const email = loginForm.email.trim();
+
+  if (!email) {
+    setError("Enter your email address first.");
+    return;
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+
+  if (error) {
+    setError(error.message);
+    return;
+  }
+
+  setError("Password reset link sent. Check your email.");
+}
+
+
+async function handleGoogleLogin() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/auth`,
+    },
+  });
+
+  if (error) {
+    setError(error.message);
+  }
+}
 
   const inputClass =
     "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
@@ -364,6 +433,14 @@ export default function AuthPage() {
                   Create Business
                   <ArrowRight className="h-4 w-4 shrink-0" />
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white p-3.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Continue with Google
+                </button>
               </form>
             ) : (
               <form onSubmit={handleLogin} className="min-w-0 space-y-4">
@@ -427,6 +504,22 @@ export default function AuthPage() {
                 >
                   Login
                   <ArrowRight className="h-4 w-4 shrink-0" />
+                </button>
+
+                <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-sm font-medium text-[#0F3D2E] hover:underline"
+                  >
+                    Forgot password?
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white p-3.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Continue with Google
                 </button>
               </form>
             )}

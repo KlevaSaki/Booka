@@ -1,3 +1,5 @@
+
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -49,8 +51,7 @@ function formatTimeLabel(time: string) {
 
 function formatPrice(price?: number) {
   if (!price) return "Price on request";
-
-  return `KES ${price.toLocaleString(undefined, {
+  return `KES \${price.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
@@ -75,7 +76,6 @@ function loadVisitedBusinesses(): VisitedBusiness[] {
 
 function saveVisitedBusiness(business: Business) {
   const visited = loadVisitedBusinesses();
-
   const next = [
     {
       slug: business.slug,
@@ -317,7 +317,7 @@ function BookingExperience({ business }: { business: Business }) {
                       {image ? (
                         <img
                           src={image}
-                          alt={`${business.name} gallery ${index + 1}`}
+                          alt={`${business.name} gallery \${index + 1}`}
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -376,7 +376,7 @@ function BookingExperience({ business }: { business: Business }) {
                     key={serviceName}
                     type="button"
                     onClick={() => setSelectedService(serviceName)}
-                    className={`min-w-0 rounded-xl border p-4 text-left transition ${
+                    className={`min-w-0 rounded-xl border p-4 text-left transition \${
                       isSelected
                         ? "border-[#0F3D2E] bg-[#FAF7EF] ring-2 ring-[#0F3D2E]/15"
                         : "border-gray-200 bg-white hover:border-[#0F3D2E]"
@@ -459,7 +459,7 @@ function BookingExperience({ business }: { business: Business }) {
                           type="button"
                           disabled={isBooked}
                           onClick={() => setTime(slot)}
-                          className={`min-w-0 rounded-xl border px-2 py-3 text-sm font-semibold transition sm:px-3 ${
+                          className={`min-w-0 rounded-xl border px-2 py-3 text-sm font-semibold transition sm:px-3 \${
                             isBooked
                               ? "cursor-not-allowed border-red-100 bg-red-50 text-red-400"
                               : isSelected
@@ -639,6 +639,8 @@ export default function PublicBooking() {
   const [visitedBusinesses, setVisitedBusinesses] = useState<VisitedBusiness[]>(
     () => loadVisitedBusinesses()
   );
+  const [searchLink, setSearchLink] = useState(''); // State for search input
+  const [searchError, setSearchError] = useState(''); // State for search error messages
 
   const getBusinessBySlug = useBusinessStore((s) => s.getBusinessBySlug);
   const business = getBusinessBySlug(slug || "");
@@ -651,6 +653,24 @@ export default function PublicBooking() {
   function openBusiness(businessSlug: string) {
     setBusinessDrawerOpen(false);
     navigate(`/b/${businessSlug}`);
+  }
+
+  function handleSearch() {
+    if (!searchLink) {
+      setSearchError("Please paste a valid link.");
+      return;
+    }
+
+    // Assuming business slug is part of the link
+    const businessSlug = searchLink.split('/').pop(); // Adjust this to extract the slug correctly
+    const foundBusiness = visitedBusinesses.find(b => b.slug === businessSlug);
+    
+    if (foundBusiness) {
+      openBusiness(foundBusiness.slug);
+      setSearchError(''); // Clear any previous errors
+    } else {
+      setSearchError("Business not found. Please check the link.");
+    }
   }
 
   if (!business) {
@@ -689,7 +709,7 @@ export default function PublicBooking() {
       )}
 
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-80 max-w-[88vw] flex-col bg-[#0F3D2E] p-5 shadow-2xl transition-transform duration-300 lg:hidden ${
+        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-80 max-w-[88vw] flex-col bg-[#0F3D2E] p-5 shadow-2xl transition-transform duration-300 lg:hidden \${
           businessDrawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -713,6 +733,30 @@ export default function PublicBooking() {
           </button>
         </div>
 
+        {/* Search Input Field */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={searchLink}
+            onChange={(e) => {
+              setSearchLink(e.target.value);
+              setSearchError(''); // Clear error on input change
+            }}
+            placeholder="Paste link to search"
+            className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm"
+          />
+          <button
+            type="button"
+            onClick={handleSearch}
+            className="mt-2 w-full rounded-xl bg-[#0F3D2E] p-2 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
+          >
+            Search
+          </button>
+          {searchError && (
+            <p className="mt-2 text-sm text-red-600">{searchError}</p>
+          )}
+        </div>
+
         {visitedBusinesses.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-4 text-sm text-gray-500">
             Visited businesses will appear here.
@@ -727,7 +771,7 @@ export default function PublicBooking() {
                   key={visitedBusiness.slug}
                   type="button"
                   onClick={() => openBusiness(visitedBusiness.slug)}
-                  className={`w-full rounded-xl border p-4 text-left transition ${
+                  className={`w-full rounded-xl border p-4 text-left transition \${
                     isActive
                       ? "border-[#0F3D2E] bg-[#FAF7EF]"
                       : "border-gray-200 bg-white hover:bg-gray-50"

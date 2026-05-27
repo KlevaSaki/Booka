@@ -16,7 +16,7 @@ export default function PublicLayout() {
                 Booka
               </h1>
               <p className="truncate text-xs font-medium uppercase tracking-[0.18em] text-[#D8D0BE]">
-                Online Booking
+                Booking made easy
               </p>
             </div>
           </div>

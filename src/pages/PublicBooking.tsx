@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -252,6 +252,8 @@ function BookingExperience({
   bookings: Booking[];
   onBookingCreated: (booking: Booking) => void;
 }) {
+  const servicePickerRef = useRef<HTMLDivElement | null>(null);
+
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [serviceSearch, setServiceSearch] = useState("");
@@ -273,6 +275,24 @@ function BookingExperience({
 
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    function closePickerOnOutsideClick(event: MouseEvent) {
+      if (!servicePickerRef.current) return;
+
+      if (!servicePickerRef.current.contains(event.target as Node)) {
+        setServicePickerOpen(false);
+      }
+    }
+
+    if (servicePickerOpen) {
+      document.addEventListener("mousedown", closePickerOnOutsideClick);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", closePickerOnOutsideClick);
+    };
+  }, [servicePickerOpen]);
 
   const businessImages = useMemo(() => {
     return (business.images || []).filter(Boolean).slice(0, 4);
@@ -395,7 +415,7 @@ function BookingExperience({
   const availableSlots = timeSlots.filter((slot) => !bookedTimes.includes(slot));
 
   const inputClass =
-    "box-border w-full min-w-0 max-w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
+    "block box-border w-full min-w-0 max-w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
 
   function toggleService(service: Service) {
     setError("");
@@ -412,7 +432,7 @@ function BookingExperience({
     });
   }
 
-  async function submitBooking(paymentMode: "full" | "deposit") {
+  async function submitBooking(paymentMode: "none" | "deposit") {
     setError("");
     setConfirmed(false);
 
@@ -434,7 +454,7 @@ function BookingExperience({
       const paymentNote =
         paymentMode === "deposit"
           ? `25% deposit option selected (${formatPrice(depositAmount)})`
-          : `Full booking selected (${formatPrice(totalPrice)})`;
+          : "No upfront payment selected";
 
       const { data, error: bookingError } = await supabase
         .from("bookings")
@@ -509,27 +529,34 @@ function BookingExperience({
                 {business.name}
               </h1>
 
-              <div className="mt-3 flex min-w-0 flex-wrap gap-3 text-sm text-white/80">
+              <div className="mt-3 flex min-w-0 flex-wrap gap-2 text-sm text-white/80">
                 {business.location && (
-                  <span className="inline-flex min-w-0 items-center gap-1">
+                  <span className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-full bg-white/10 px-3 py-1">
                     <MapPin className="h-4 w-4 shrink-0" />
                     <span className="truncate">{business.location}</span>
                   </span>
                 )}
 
                 {business.department && (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 capitalize">
+                  <span className="rounded-full bg-white/10 px-3 py-1 capitalize">
                     {business.department}
-                    <span
-                      className={`h-2 w-2 rounded-full ${
-                        businessStatus === "Open"
-                          ? "bg-green-400"
-                          : "bg-red-400"
-                      }`}
-                    />
-                    <span className="normal-case">{businessStatus}</span>
                   </span>
                 )}
+
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold ${
+                    businessStatus === "Open"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      businessStatus === "Open" ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  />
+                  {businessStatus}
+                </span>
               </div>
             </div>
           </div>
@@ -616,7 +643,7 @@ function BookingExperience({
               Select one or more services for this booking.
             </p>
 
-            <div className="relative mt-4">
+            <div ref={servicePickerRef} className="relative mt-4">
               <button
                 type="button"
                 onClick={() => setServicePickerOpen((value) => !value)}
@@ -628,7 +655,7 @@ function BookingExperience({
                   </p>
                   <p className="mt-0.5 truncate text-xs text-gray-500">
                     {selectedServices.length
-                      ? `${formatPrice(totalPrice)} total`
+                      ? `${formatPrice(totalPrice)} estimated total`
                       : "Tap to view service menu"}
                   </p>
                 </div>
@@ -724,7 +751,7 @@ function BookingExperience({
             )}
           </section>
 
-          <section className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Select Date & Time
             </h2>
@@ -732,20 +759,22 @@ function BookingExperience({
               Booked slots are disabled automatically.
             </p>
 
-            <div className="mt-4 min-w-0 space-y-4">
+            <div className="mt-4 min-w-0 max-w-full space-y-4 overflow-hidden">
               <div className="min-w-0 max-w-full overflow-hidden">
                 <label className="mb-2 block text-sm font-semibold">
                   Preferred Date
                 </label>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={date}
-                  onChange={(e) => {
-                    setDate(e.target.value);
-                    setTime("");
-                  }}
-                />
+                <div className="w-full min-w-0 max-w-full overflow-hidden">
+                  <input
+                    type="date"
+                    className={`${inputClass} min-w-0`}
+                    value={date}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      setTime("");
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="min-w-0">
@@ -890,12 +919,21 @@ function BookingExperience({
                   </p>
                 </div>
               </div>
+
+              <div className="mt-4 rounded-2xl bg-[#FAF7EF] p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Payment choice
+              </p>
+              <p className="mt-1 text-sm leading-6 text-gray-600">
+                You can book now without paying anything. Although to secure your spot, you can book with the 25% deposit.
+              </p>
+            </div>
             </div>
 
-            <div className="mt-5 rounded-2xl bg-[#FAF7EF] p-4">
+            <div className="mt-5 rounded-2xl border border-[#D8D0BE] bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-gray-950">
-                  Total Price
+                  Total
                 </p>
                 <p className="text-lg font-semibold text-[#0F3D2E]">
                   {formatPrice(totalPrice)}
@@ -904,7 +942,7 @@ function BookingExperience({
 
               <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#D8D0BE] pt-3">
                 <p className="text-xs font-medium text-gray-500">
-                  25% deposit to secure booking
+                  Optional 25% deposit
                 </p>
                 <p className="text-sm font-semibold text-gray-950">
                   {formatPrice(depositAmount)}
@@ -926,20 +964,24 @@ function BookingExperience({
 
             <button
               type="button"
-              onClick={() => submitBooking("full")}
+              onClick={() => submitBooking("none")}
               disabled={isSubmitting}
               className="mt-5 w-full rounded-xl bg-[#0F3D2E] p-4 text-sm font-semibold text-white transition hover:bg-[#0c2f23] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? "Confirming..." : "Confirm Booking"}
             </button>
 
+            <p className="mt-2 text-center text-xs text-gray-500">
+              No payment is required to confirm.
+            </p>
+
             <button
               type="button"
               onClick={() => submitBooking("deposit")}
               disabled={isSubmitting || totalPrice <= 0}
-              className="mt-2 w-full rounded-xl border border-[#0F3D2E]/20 px-4 py-2.5 text-xs font-semibold text-[#0F3D2E] transition hover:bg-[#FAF7EF] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 w-full rounded-xl border border-[#0F3D2E]/20 px-4 py-2.5 text-xs font-semibold text-[#0F3D2E] transition hover:bg-[#FAF7EF] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Book with 25% deposit
+              Secure with optional 25% deposit
             </button>
           </div>
         </aside>

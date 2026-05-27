@@ -690,9 +690,46 @@ export default function BusinessSetup() {
                 onChange={(e) => setDepartment(e.target.value)}
               >
                 <option value="">Select department</option>
-                <option value="restaurant">Restaurant</option>
+                <option value="restaurant">Barber Shop</option>
                 <option value="salon">Salon</option>
-                <option value="fitness">Fitness</option>
+                <option value="salon">Fashion</option>
+                <option value="salon">Photography</option>
+                <option value="fitness">Gym & Fitness</option>
+                <option value="fitness">Personal Training</option>
+                <option value="fitness">Interior Design</option>
+                <option value="fitness">Spa</option>
+                <option value="fitness">Nail Studio</option>
+                <option value="fitness">Massage Therapy</option>
+                <option value="fitness">Makeup Studio</option>
+                <option value="fitness">Tattoo & Piercing</option>
+                <option value="fitness">Swimming</option>
+                <option value="fitness">Martial Arts</option>
+                <option value="fitness">Dance Studio</option>
+                <option value="fitness">Sports Coaching</option>
+                <option value="fitness">Nutritionist</option>
+                <option value="fitness">Car Wash & car Services</option>
+                <option value="fitness">Plumbing</option>
+                <option value="fitness">Electrical</option>
+                <option value="fitness">Pest Control</option>
+                <option value="fitness">LandScaping</option>
+                <option value="fitness">Moving Services</option>
+                <option value="fitness">Cleaning Services</option>
+                <option value="fitness">Tutoring</option>
+                <option value="fitness">Music Lessons</option>
+                <option value="fitness">Coding Bootcamp</option>
+                <option value="fitness">DJ Service</option>
+                <option value="fitness">Wedding Services</option>
+                <option value="fitness">Airbnb Management</option>
+                <option value="fitness">Safari Booking</option>
+                <option value="fitness">Jewelry Store</option>
+                <option value="fitness">Tailoring</option>
+                <option value="fitness">Shoe Repair</option>
+                <option value="fitness">Phone Repair</option>
+                <option value="fitness">Graphic Design</option>
+                <option value="fitness">Printing Services</option>
+                <option value="fitness">Travel Agency</option>
+                <option value="fitness">Event Planning</option>
+                
               </select>
             </section>
 

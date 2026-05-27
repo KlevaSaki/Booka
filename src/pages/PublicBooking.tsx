@@ -925,7 +925,7 @@ function BookingExperience({
                 Payment choice
               </p>
               <p className="mt-1 text-sm leading-6 text-gray-600">
-                You can book now without paying anything. Although to secure your spot, you can book with the 25% deposit.
+                You can book now without paying anything. Although to secure your spot, book with 25% deposit.
               </p>
             </div>
             </div>

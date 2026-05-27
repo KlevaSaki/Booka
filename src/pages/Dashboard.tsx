@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  Bell,
   CalendarDays,
   Check,
   Clipboard,
-  Clock,
   ExternalLink,
   MapPin,
+  Search,
   Settings,
   Share2,
   Wallet,
+  X,
 } from "lucide-react";
 
 import { supabase } from "../lib/supabase-client";
@@ -98,6 +100,7 @@ type Notification = {
   title: string;
   message: string;
   createdAt: number;
+  read?: boolean;
 };
 
 function timeToMinutes(time: string) {
@@ -111,6 +114,13 @@ function getDateKey(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getMonthKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}`;
 }
 
 function formatDate(datetime?: string) {
@@ -172,6 +182,14 @@ function normalizeBooking(row: BookingRow): Booking {
   };
 }
 
+function getServiceRevenue(bookingService: string, services: Service[]) {
+  return services.reduce((total, service) => {
+    return bookingService.includes(service.name)
+      ? total + (service.price || 0)
+      : total;
+  }, 0);
+}
+
 export default function Dashboard() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -182,114 +200,112 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusText, setStatusText] = useState("");
   const [statusError, setStatusError] = useState("");
+  const [isPostingStatus, setIsPostingStatus] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState("");
 
   function addNotification(booking: Booking) {
-  setNotifications((prev) => [
-    {
-      id: booking.id,
-      title: "New booking",
-      message: `${booking.name} booked ${booking.service}`,
-      createdAt: Date.now(),
-    },
-    ...prev,
-  ]);
-
-  window.setTimeout(() => {
-    setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== booking.id)
-    );
-  }, 6000);
-}
-
-    useEffect(() => {
-  let channel: ReturnType<typeof supabase.channel> | null = null;
-
-  async function loadDashboard() {
-    setIsLoading(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      navigate("/");
-      return;
-    }
-
-    const { data: businessData, error: businessError } = await supabase
-      .from("businesses")
-      .select("*")
-      .eq("slug", slug)
-      .eq("user_id", user.id)
-      .single();
-
-    if (businessError || !businessData) {
-      setBusiness(null);
-      setIsLoading(false);
-      return;
-    }
-
-    const mappedBusiness = normalizeBusiness(businessData as BusinessRow);
-
-    setBusiness(mappedBusiness);
-    setStatusText(mappedBusiness.statusText || "");
-
-    if (!mappedBusiness.isSetupComplete) {
-      navigate(`/setup/${mappedBusiness.slug}`);
-      return;
-    }
-
-    const { data: bookingData } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("business_slug", slug)
-      .order("datetime", { ascending: true });
-
-    setBookings(
-      ((bookingData || []) as BookingRow[]).map((booking) =>
-        normalizeBooking(booking)
-      )
-    );
-
-    channel = supabase
-      .channel(`bookings:${slug}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "bookings",
-          filter: `business_slug=eq.${slug}`,
-        },
-        (payload) => {
-          const booking = payload.new as BookingRow;
-
-          setBookings((prev) => {
-            const alreadyExists = prev.some((item) => item.id === booking.id);
-
-            if (alreadyExists) return prev;
-
-                const normalizedBooking = normalizeBooking(booking);
-                addNotification(normalizedBooking);
-
-                return [...prev, normalizedBooking];
-          });
-        }
-      )
-      .subscribe();
-
-    setIsLoading(false);
+    setNotifications((prev) => [
+      {
+        id: booking.id,
+        title: "New booking",
+        message: `${booking.name} booked ${booking.service}`,
+        createdAt: Date.now(),
+        read: false,
+      },
+      ...prev,
+    ]);
   }
 
-  loadDashboard();
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-  return () => {
-    if (channel) {
-      supabase.removeChannel(channel);
+    async function loadDashboard() {
+      setIsLoading(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        navigate("/");
+        return;
+      }
+
+      const { data: businessData, error: businessError } = await supabase
+        .from("businesses")
+        .select("*")
+        .eq("slug", slug)
+        .eq("user_id", user.id)
+        .single();
+
+      if (businessError || !businessData) {
+        setBusiness(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const mappedBusiness = normalizeBusiness(businessData as BusinessRow);
+
+      setBusiness(mappedBusiness);
+      setStatusText(mappedBusiness.statusText || "");
+
+      if (!mappedBusiness.isSetupComplete) {
+        navigate(`/setup/${mappedBusiness.slug}`);
+        return;
+      }
+
+      const { data: bookingData } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("business_slug", slug)
+        .order("datetime", { ascending: true });
+
+      setBookings(
+        ((bookingData || []) as BookingRow[]).map((booking) =>
+          normalizeBooking(booking)
+        )
+      );
+
+      channel = supabase
+        .channel(`bookings:${slug}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "bookings",
+            filter: `business_slug=eq.${slug}`,
+          },
+          (payload) => {
+            const booking = payload.new as BookingRow;
+
+            setBookings((prev) => {
+              const alreadyExists = prev.some((item) => item.id === booking.id);
+
+              if (alreadyExists) return prev;
+
+              const normalizedBooking = normalizeBooking(booking);
+              addNotification(normalizedBooking);
+
+              return [...prev, normalizedBooking];
+            });
+          }
+        )
+        .subscribe();
+
+      setIsLoading(false);
     }
-  };
-}, [slug, navigate]);
+
+    loadDashboard();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [slug, navigate]);
 
   async function updateStatus() {
     if (!business) return;
@@ -303,26 +319,40 @@ export default function Dashboard() {
       return;
     }
 
-    const createdAt = new Date().toISOString();
+    try {
+      setIsPostingStatus(true);
 
-    const { error } = await supabase
-      .from("businesses")
-      .update({
-        status_text: trimmed,
-        status_created_at: createdAt,
-      })
-      .eq("slug", business.slug);
+      const createdAt = new Date().toISOString();
 
-    if (error) {
-      setStatusError(error.message);
-      return;
+      const { data, error } = await supabase
+        .from("businesses")
+        .update({
+          status_text: trimmed,
+          status_created_at: createdAt,
+        })
+        .eq("id", business.id)
+        .eq("user_id", business.userId)
+        .select("status_text, status_created_at")
+        .single();
+
+      if (error) {
+        setStatusError(error.message);
+        return;
+      }
+
+      setBusiness({
+        ...business,
+        statusText: data?.status_text || trimmed,
+        statusCreatedAt: data?.status_created_at || createdAt,
+      });
+
+      setStatusText(data?.status_text || trimmed);
+    } catch (error) {
+      console.error(error);
+      setStatusError("Could not post status. Please try again.");
+    } finally {
+      setIsPostingStatus(false);
     }
-
-    setBusiness({
-      ...business,
-      statusText: trimmed,
-      statusCreatedAt: createdAt,
-    });
   }
 
   const businessBookings = useMemo(() => {
@@ -350,16 +380,16 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [businessBookings]);
 
-  const totalRevenue = useMemo(() => {
+  const monthlyRevenue = useMemo(() => {
     if (!business?.services?.length) return 0;
 
-    return businessBookings.reduce((total, booking) => {
-      const service = business.services.find(
-        (item: Service) => item.name === booking.service
-      );
+    const currentMonth = getMonthKey(new Date());
 
-      return total + (service?.price || 0);
-    }, 0);
+    return businessBookings
+      .filter((booking) => getMonthKey(new Date(booking.datetime)) === currentMonth)
+      .reduce((total, booking) => {
+        return total + getServiceRevenue(booking.service, business.services);
+      }, 0);
   }, [business?.services, businessBookings]);
 
   const status = useMemo(() => {
@@ -385,10 +415,37 @@ export default function Dashboard() {
       : "Closed";
   }, [business]);
 
+  const filteredServices = useMemo(() => {
+    const query = serviceSearch.trim().toLowerCase();
+
+    return [...(business?.services || [])]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter((service) => {
+        if (!query) return true;
+        return service.name.toLowerCase().includes(query);
+      });
+  }, [business?.services, serviceSearch]);
+
+  const unreadNotifications = notifications.filter(
+    (notification) => !notification.read
+  ).length;
+
+  function toggleNotifications() {
+    setNotificationsOpen((value) => !value);
+
+    if (!notificationsOpen) {
+      setNotifications((prev) =>
+        prev.map((notification) => ({
+          ...notification,
+          read: true,
+        }))
+      );
+    }
+  }
+
   if (isLoading) {
     return (
       <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] p-4 sm:p-6">
-
         <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-gray-950">
             Loading dashboard
@@ -429,85 +486,125 @@ export default function Dashboard() {
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
-      {notifications.length > 0 && (
-        <div className="fixed right-4 top-4 z-50 w-[calc(100vw-2rem)] max-w-sm space-y-2">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className="rounded-2xl border border-[#D8D0BE] bg-white p-4 shadow-xl"
-            >
-              <p className="text-sm font-semibold text-gray-950">
-                {notification.title}
-              </p>
-              <p className="mt-1 text-sm text-gray-600">
-                {notification.message}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
       <section className="overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-sm">
-  <div className="relative min-h-64 bg-[#0F3D2E]">
-    {business.images?.[0] && (
-      <img
-        src={business.images[0]}
-        alt={business.name}
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-    )}
-
-    <div className="absolute inset-0 bg-linear-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
-
-    <Link
-      to={`/settings/${business.slug}`}
-      aria-label="Settings"
-      className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF7EF] text-[#0F3D2E] shadow-sm transition hover:bg-white"
-    >
-      <Settings className="h-4 w-4" />
-    </Link>
-
-    <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
-      <div className="min-w-0 pr-14">
-        <div
-          className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-            status === "Open"
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}
-        >
-          {status}
-        </div>
-
-        <h1 className="max-w-2xl wrap-break-word text-3xl font-semibold tracking-tight sm:text-4xl">
-          {business.name}
-        </h1>
-      </div>
-
-      <div className="mt-8 max-w-2xl">
-        <div className="mb-3 flex min-w-0 flex-wrap gap-3 text-sm text-white/80">
-          <span className="inline-flex min-w-0 items-center gap-1">
-            <MapPin className="h-4 w-4 shrink-0" />
-            <span className="truncate">{business.location}</span>
-          </span>
-
-          {business.department && (
-            <span className="rounded-full bg-white/10 px-3 py-1 capitalize">
-              {business.department}
-            </span>
+        <div className="relative min-h-64 bg-[#0F3D2E]">
+          {business.images?.[0] && (
+            <img
+              src={business.images[0]}
+              alt={business.name}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           )}
-        </div>
 
-        {business.description && (
-          <p className="wrap-break-word text-sm leading-6 text-white/75 sm:text-base">
-            {business.description}
-          </p>
-        )}
-      </div>
-    </div>
-  </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
+
+          <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={toggleNotifications}
+                aria-label="Notifications"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF7EF] text-[#0F3D2E] shadow-sm transition hover:bg-white"
+              >
+                <Bell className="h-4 w-4" />
+              </button>
+
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {unreadNotifications}
+                </span>
+              )}
+
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white text-gray-900 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-[#EFE7D6] px-4 py-3">
+                    <p className="text-sm font-semibold">Notifications</p>
+                    <button
+                      type="button"
+                      onClick={() => setNotificationsOpen(false)}
+                      className="rounded-lg p-1 text-gray-400 hover:bg-gray-50 hover:text-gray-700"
+                      aria-label="Close notifications"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {notifications.length ? (
+                    <div className="max-h-80 overflow-y-auto p-2">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className="rounded-xl border border-gray-100 p-3"
+                        >
+                          <p className="text-sm font-semibold text-gray-950">
+                            {notification.title}
+                          </p>
+                          <p className="mt-1 text-sm leading-5 text-gray-600">
+                            {notification.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-sm text-gray-500">
+                      New bookings will appear here while this dashboard is open.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Link
+              to={`/settings/${business.slug}`}
+              aria-label="Settings"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF7EF] text-[#0F3D2E] shadow-sm transition hover:bg-white"
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
+            <div className="min-w-0 pr-24">
+              <div
+                className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                  status === "Open"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-red-100 text-red-700"
+                }`}
+              >
+                {status}
+              </div>
+
+              <h1 className="max-w-2xl break-words text-3xl font-semibold tracking-tight sm:text-4xl">
+                {business.name}
+              </h1>
+            </div>
+
+            <div className="mt-8 max-w-2xl">
+              <div className="mb-3 flex min-w-0 flex-wrap gap-3 text-sm text-white/80">
+                <span className="inline-flex min-w-0 items-center gap-1">
+                  <MapPin className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{business.location}</span>
+                </span>
+
+                {business.department && (
+                  <span className="rounded-full bg-white/10 px-3 py-1 capitalize">
+                    {business.department}
+                  </span>
+                )}
+              </div>
+
+              {business.description && (
+                <p className="break-words text-sm leading-6 text-white/75 sm:text-base">
+                  {business.description}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid min-w-0 gap-4 sm:grid-cols-3">
         <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
             <CalendarDays className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
@@ -531,24 +628,10 @@ export default function Dashboard() {
         <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
             <Wallet className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
-            Estimated Revenue
+            Monthly Estimated Revenue
           </p>
           <p className="mt-3 truncate text-2xl font-semibold text-gray-950">
-            {formatPrice(totalRevenue)}
-          </p>
-        </div>
-
-        <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
-          <p className="flex items-center gap-2 text-sm text-gray-500">
-            <Clock className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
-            Business Status
-          </p>
-          <p
-            className={`mt-3 truncate text-3xl font-semibold ${
-              status === "Open" ? "text-green-600" : "text-red-500"
-            }`}
-          >
-            {status}
+            {formatPrice(monthlyRevenue)}
           </p>
         </div>
       </section>
@@ -556,30 +639,56 @@ export default function Dashboard() {
       <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-6">
           <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
-              <h2 className="min-w-0 truncate text-lg font-semibold text-gray-950">
-                Services Offered
-              </h2>
-              <span className="shrink-0 rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
+            <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-950">
+                  Services Offered
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Compact service catalog for quick review.
+                </p>
+              </div>
+
+              <span className="w-fit shrink-0 rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
                 {business.services?.length || 0} services
               </span>
             </div>
 
             {business.services?.length ? (
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                {business.services.map((service: Service) => (
-                  <div
-                    key={service.name}
-                    className="min-w-0 rounded-xl border border-gray-200 bg-[#FAF7EF] p-4"
-                  >
-                    <p className="truncate font-semibold text-gray-950">
-                      {service.name}
-                    </p>
-                    <p className="mt-1 truncate text-sm font-medium text-[#0F3D2E]">
-                      {formatPrice(service.price)}
-                    </p>
-                  </div>
-                ))}
+              <div className="rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF] p-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                  <input
+                    value={serviceSearch}
+                    onChange={(e) => setServiceSearch(e.target.value)}
+                    placeholder="Search services"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10"
+                  />
+                </div>
+
+                <div className="mt-3 max-h-72 overflow-y-auto rounded-xl bg-white p-2">
+                  {filteredServices.length ? (
+                    <div className="divide-y divide-gray-100">
+                      {filteredServices.map((service: Service) => (
+                        <div
+                          key={service.name}
+                          className="flex min-w-0 items-center justify-between gap-3 px-2 py-3"
+                        >
+                          <p className="truncate text-sm font-semibold text-gray-950">
+                            {service.name}
+                          </p>
+                          <p className="shrink-0 text-sm font-medium text-[#0F3D2E]">
+                            {formatPrice(service.price)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-4 text-center text-sm text-gray-500">
+                      No services match your search.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-gray-500">No services added yet.</p>
@@ -634,7 +743,7 @@ export default function Dashboard() {
               <div className="mt-4 space-y-4 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium text-gray-950">Working Days</p>
-                  <p className="mt-1 wrap-break-word text-gray-500">
+                  <p className="mt-1 break-words text-gray-500">
                     {business.workingHours.days?.join(", ")}
                   </p>
                 </div>
@@ -655,12 +764,15 @@ export default function Dashboard() {
 
           <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
-              Business Status
+              Status Update
             </h2>
 
             <textarea
               value={statusText}
-              onChange={(e) => setStatusText(e.target.value)}
+              onChange={(e) => {
+                setStatusText(e.target.value);
+                setStatusError("");
+              }}
               maxLength={120}
               rows={3}
               placeholder="Post a short update for clients"
@@ -674,9 +786,10 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={updateStatus}
-              className="mt-3 w-full rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
+              disabled={isPostingStatus}
+              className="mt-3 w-full rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Post Status
+              {isPostingStatus ? "Posting..." : "Post Status"}
             </button>
 
             <p className="mt-2 text-xs text-gray-500">

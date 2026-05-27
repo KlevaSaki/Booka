@@ -11,8 +11,87 @@ import {
   Share2,
   Wallet,
 } from "lucide-react";
-import { useBusinessStore } from "../features/business/store";
-import { useBookingStore } from "../features/bookings/store";
+
+import { supabase } from "../lib/supabase-client";
+
+type Service = {
+  name: string;
+  price: number;
+};
+
+type WorkingHours = {
+  days: string[];
+  open: string;
+  close: string;
+};
+
+type Business = {
+  id: string;
+  userId: string;
+  name: string;
+  owner?: string;
+  email?: string;
+  phone?: string;
+  location: string;
+  description?: string;
+  slug: string;
+  bookingLink?: string;
+  images: string[];
+  department?: string;
+  services: Service[];
+  workingHours?: WorkingHours;
+  socialLinks?: {
+    instagram?: string;
+    facebook?: string;
+    website?: string;
+  };
+  isSetupComplete: boolean;
+  statusText?: string;
+  statusCreatedAt?: string;
+};
+
+type Booking = {
+  id: string;
+  businessSlug: string;
+  service: string;
+  name: string;
+  phone: string;
+  datetime: string;
+};
+
+type BusinessRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  owner?: string;
+  email?: string;
+  phone?: string;
+  location: string;
+  description?: string | null;
+  slug: string;
+  booking_link?: string | null;
+  images?: string[] | null;
+  department?: string | null;
+  services?: Service[] | null;
+  working_hours?: WorkingHours | null;
+  social_links?: {
+    instagram?: string;
+    facebook?: string;
+    website?: string;
+  } | null;
+  is_setup_complete?: boolean | null;
+  status_text?: string | null;
+  status_created_at?: string | null;
+};
+
+type BookingRow = {
+  id: string;
+  business_slug: string;
+  service: string;
+  name: string;
+  phone: string;
+  datetime: string;
+};
 
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
@@ -52,17 +131,138 @@ function formatPrice(price: number) {
   })}`;
 }
 
+function normalizeBusiness(row: BusinessRow): Business {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    owner: row.owner,
+    email: row.email,
+    phone: row.phone,
+    location: row.location,
+    description: row.description || "",
+    slug: row.slug,
+    bookingLink: row.booking_link || `/b/${row.slug}`,
+    images: row.images || [],
+    department: row.department || undefined,
+    services: row.services || [],
+    workingHours: row.working_hours || undefined,
+    socialLinks: row.social_links || undefined,
+    isSetupComplete: Boolean(row.is_setup_complete),
+    statusText: row.status_text || undefined,
+    statusCreatedAt: row.status_created_at || undefined,
+  };
+}
+
+function normalizeBooking(row: BookingRow): Booking {
+  return {
+    id: row.id,
+    businessSlug: row.business_slug,
+    service: row.service,
+    name: row.name,
+    phone: row.phone,
+    datetime: row.datetime,
+  };
+}
+
 export default function Dashboard() {
   const { slug } = useParams();
   const navigate = useNavigate();
 
   const [copied, setCopied] = useState(false);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusText, setStatusText] = useState("");
+  const [statusError, setStatusError] = useState("");
 
-  const business = useBusinessStore((s) =>
-    s.businesses.find((b) => b.slug === slug)
-  );
+  useEffect(() => {
+    async function loadDashboard() {
+      setIsLoading(true);
 
-  const bookings = useBookingStore((s) => s.bookings);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        navigate("/");
+        return;
+      }
+
+      const { data: businessData, error: businessError } = await supabase
+        .from("businesses")
+        .select("*")
+        .eq("slug", slug)
+        .eq("user_id", user.id)
+        .single();
+
+      if (businessError || !businessData) {
+        setBusiness(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const mappedBusiness = normalizeBusiness(businessData as BusinessRow);
+
+      setBusiness(mappedBusiness);
+      setStatusText(mappedBusiness.statusText || "");
+
+      if (!mappedBusiness.isSetupComplete) {
+        navigate(`/setup/${mappedBusiness.slug}`);
+        return;
+      }
+
+      const { data: bookingData } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("business_slug", slug)
+        .order("datetime", { ascending: true });
+
+      setBookings(
+        ((bookingData || []) as BookingRow[]).map((booking) =>
+          normalizeBooking(booking)
+        )
+      );
+
+      setIsLoading(false);
+    }
+
+    loadDashboard();
+  }, [slug, navigate]);
+
+  async function updateStatus() {
+    if (!business) return;
+
+    setStatusError("");
+
+    const trimmed = statusText.trim();
+
+    if (!trimmed) {
+      setStatusError("Enter a short status update first.");
+      return;
+    }
+
+    const createdAt = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("businesses")
+      .update({
+        status_text: trimmed,
+        status_created_at: createdAt,
+      })
+      .eq("slug", business.slug);
+
+    if (error) {
+      setStatusError(error.message);
+      return;
+    }
+
+    setBusiness({
+      ...business,
+      statusText: trimmed,
+      statusCreatedAt: createdAt,
+    });
+  }
 
   const businessBookings = useMemo(() => {
     return bookings.filter((booking) => booking.businessSlug === slug);
@@ -94,7 +294,7 @@ export default function Dashboard() {
 
     return businessBookings.reduce((total, booking) => {
       const service = business.services.find(
-        (item) => item.name === booking.service
+        (item: Service) => item.name === booking.service
       );
 
       return total + (service?.price || 0);
@@ -124,11 +324,20 @@ export default function Dashboard() {
       : "Closed";
   }, [business]);
 
-  useEffect(() => {
-    if (business && !business.isSetupComplete) {
-      navigate(`/setup/${business.slug}`);
-    }
-  }, [business, navigate]);
+  if (isLoading) {
+    return (
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] p-4 sm:p-6">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-950">
+            Loading dashboard
+          </h2>
+          <p className="mt-2 text-sm text-gray-500">
+            Preparing your business data.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   if (!business) {
     return (
@@ -168,7 +377,7 @@ export default function Dashboard() {
             />
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
+          <div className="absolute inset-0 bg-linear-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
 
           <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
             <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -183,7 +392,7 @@ export default function Dashboard() {
                   {status}
                 </div>
 
-                <h1 className="max-w-2xl break-words text-3xl font-semibold tracking-tight sm:text-4xl">
+                <h1 className="max-w-2xl wrap-break-word text-3xl font-semibold tracking-tight sm:text-4xl">
                   {business.name}
                 </h1>
 
@@ -211,7 +420,7 @@ export default function Dashboard() {
             </div>
 
             {business.description && (
-              <p className="mt-8 max-w-2xl break-words text-sm leading-6 text-white/75 sm:text-base">
+              <p className="mt-8 max-w-2xl wrap-break-word text-sm leading-6 text-white/75 sm:text-base">
                 {business.description}
               </p>
             )}
@@ -279,7 +488,7 @@ export default function Dashboard() {
 
             {business.services?.length ? (
               <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                {business.services.map((service) => (
+                {business.services.map((service: Service) => (
                   <div
                     key={service.name}
                     className="min-w-0 rounded-xl border border-gray-200 bg-[#FAF7EF] p-4"
@@ -346,7 +555,7 @@ export default function Dashboard() {
               <div className="mt-4 space-y-4 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium text-gray-950">Working Days</p>
-                  <p className="mt-1 break-words text-gray-500">
+                  <p className="mt-1 wrap-break-word text-gray-500">
                     {business.workingHours.days?.join(", ")}
                   </p>
                 </div>
@@ -363,6 +572,37 @@ export default function Dashboard() {
                 Working hours not set.
               </p>
             )}
+          </div>
+
+          <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-950">
+              Business Status
+            </h2>
+
+            <textarea
+              value={statusText}
+              onChange={(e) => setStatusText(e.target.value)}
+              maxLength={120}
+              rows={3}
+              placeholder="Post a short update for clients"
+              className="mt-4 w-full min-w-0 resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10"
+            />
+
+            {statusError && (
+              <p className="mt-2 text-sm text-red-600">{statusError}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={updateStatus}
+              className="mt-3 w-full rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
+            >
+              Post Status
+            </button>
+
+            <p className="mt-2 text-xs text-gray-500">
+              This status is shown on your public booking page for 24 hours.
+            </p>
           </div>
 
           <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">

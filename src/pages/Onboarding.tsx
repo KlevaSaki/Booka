@@ -14,7 +14,7 @@ import {
   Phone,
   User,
 } from "lucide-react";
-import { useBusinessStore } from "../features/business/store";
+// import { useBusinessStore } from "../features/business/store";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("register");
@@ -40,9 +40,9 @@ export default function AuthPage() {
 
   const navigate = useNavigate();
 
-  const businesses = useBusinessStore((s) => s.businesses);
-  const setBusiness = useBusinessStore((s) => s.setBusiness);
-  const setActiveBusiness = useBusinessStore((s) => s.setActiveBusiness);
+  // const businesses = useBusinessStore((s) => s.businesses);
+  // const setBusiness = useBusinessStore((s) => s.setBusiness);
+  // const setActiveBusiness = useBusinessStore((s) => s.setActiveBusiness);
 
   const passwordStrength = useMemo(() => {
     let score = 0;
@@ -114,11 +114,13 @@ export default function AuthPage() {
   setError("");
 
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: loginForm.email,
+    email: loginForm.email.trim(),
     password: loginForm.password,
+    
   });
 
   if (error) {
+    console.error("Supabase signup error:", error)
     setError(error.message);
     return;
   }

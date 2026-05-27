@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -15,11 +15,38 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { useBusinessStore } from "../features/business/store";
+import { supabase } from "../lib/supabase-client";
 
 type Service = {
   name: string;
   price: number;
+};
+
+type Business = {
+  id: string;
+  user_id: string;
+  name: string;
+  owner: string;
+  email: string;
+  phone: string;
+  location: string;
+  description: string;
+  slug: string;
+  booking_link: string;
+  images: string[] | null;
+  department: string | null;
+  services: Service[] | null;
+  working_hours: {
+    days: string[];
+    open: string;
+    close: string;
+  } | null;
+  social_links: {
+    instagram?: string;
+    facebook?: string;
+    website?: string;
+  } | null;
+  is_setup_complete: boolean;
 };
 
 const DAYS = [
@@ -52,7 +79,7 @@ const TIMES = [
   "21:00",
   "22:00",
   "23:00",
-  "23:59"
+  "23:59",
 ];
 
 function timeToMinutes(time: string) {
@@ -78,11 +105,93 @@ function formatOptionalUrl(value: string) {
   return `https://${trimmed}`;
 }
 
+function compressImage(file: File, maxWidth = 1200, quality = 0.75) {
+  return new Promise<File>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(1, maxWidth / img.width);
+
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+
+        const ctx = canvas.getContext("2d");
+
+        if (!ctx) {
+          reject(new Error("Could not prepare image."));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Could not compress image."));
+              return;
+            }
+
+            resolve(
+              new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+                type: "image/jpeg",
+              })
+            );
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+
+      img.onerror = () => reject(new Error("Could not load image."));
+      img.src = reader.result as string;
+    };
+
+    reader.onerror = () => reject(new Error("Could not read image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadBusinessImage(
+  file: File,
+  businessId: string,
+  imageIndex: number
+) {
+  const path = `${businessId}/${Date.now()}-${imageIndex}-${crypto.randomUUID()}.jpg`;
+
+  const { error } = await supabase.storage
+    .from("business-images")
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: true,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from("business-images").getPublicUrl(path);
+
+  return data.publicUrl;
+} 
+
 export default function BusinessSetup() {
   const { slug } = useParams();
   const navigate = useNavigate();
 
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
   const [images, setImages] = useState<string[]>(["", "", "", ""]);
+  const [imageFiles, setImageFiles] = useState<Array<File | null>>([
+    null,
+    null,
+    null,
+    null,
+  ]);
   const [department, setDepartment] = useState("");
   const [serviceInput, setServiceInput] = useState("");
   const [servicePriceInput, setServicePriceInput] = useState("");
@@ -95,11 +204,59 @@ export default function BusinessSetup() {
   const [website, setWebsite] = useState("");
   const [error, setError] = useState("");
 
-  const business = useBusinessStore((s) =>
-    s.businesses.find((b) => b.slug === slug)
-  );
+  useEffect(() => {
+    async function loadBusiness() {
+      setIsLoading(true);
+      setError("");
 
-  const updateBusiness = useBusinessStore((s) => s.updateBusiness);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        navigate("/");
+        return;
+      }
+
+      const { data, error: businessError } = await supabase
+        .from("businesses")
+        .select("*")
+        .eq("slug", slug)
+        .eq("user_id", user.id)
+        .single();
+
+      if (businessError || !data) {
+        setBusiness(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const loadedBusiness = data as Business;
+      const loadedImages = loadedBusiness.images || [];
+      const loadedServices = loadedBusiness.services || [];
+      const loadedHours = loadedBusiness.working_hours;
+      const loadedSocialLinks = loadedBusiness.social_links || {};
+
+      setBusiness(loadedBusiness);
+      setImages([
+        loadedImages[0] || "",
+        loadedImages[1] || "",
+        loadedImages[2] || "",
+        loadedImages[3] || "",
+      ]);
+      setDepartment(loadedBusiness.department || "");
+      setServices(loadedServices);
+      setWorkingDays(loadedHours?.days || []);
+      setOpenTime(loadedHours?.open || "09:00");
+      setCloseTime(loadedHours?.close || "17:00");
+      setInstagram(loadedSocialLinks.instagram || "");
+      setFacebook(loadedSocialLinks.facebook || "");
+      setWebsite(loadedSocialLinks.website || "");
+      setIsLoading(false);
+    }
+
+    loadBusiness();
+  }, [slug, navigate]);
 
   const uploadedImageCount = images.filter(Boolean).length;
 
@@ -133,26 +290,14 @@ export default function BusinessSetup() {
     Boolean(link.trim())
   ).length;
 
-  if (!business) {
-    return (
-      <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-4 py-16">
-        <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
-          <h1 className="text-xl font-semibold text-gray-950">
-            Business not found
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            This setup link is invalid or expired.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
 
-    console.log("button pressed")
+    if (!business || !slug) {
+      setError("Business not found.");
+      return;
+    }
 
     if (!department) {
       setError("Please select a department.");
@@ -175,91 +320,96 @@ export default function BusinessSetup() {
     }
 
     try {
-  updateBusiness(slug!, {
-    department,
-    services,
-    workingHours: {
-      days: workingDays,
-      open: openTime,
-      close: closeTime,
-    },
-    socialLinks: {
-      instagram: formatOptionalUrl(instagram),
-      facebook: formatOptionalUrl(facebook),
-      website: formatOptionalUrl(website),
-    },
-    images: images.filter(Boolean),
-    isSetupComplete: true,
-  });
+      setIsSaving(true);
 
-  navigate(`/dashboard/${slug}`);
-} catch (error) {
-  console.error(error);
-  setError("Something went wrong while saving your setup. Try using smaller images.");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
+      const finalImages = await Promise.all(
+        images.map(async (image, index) => {
+          const file = imageFiles[index];
+
+          if (!image) return "";
+          if (!file) return image;
+
+          return uploadBusinessImage(file, business.id, index);
+        })
+      );
+
+      const { error: updateError } = await supabase
+        .from("businesses")
+        .update({
+          department,
+          services,
+          working_hours: {
+            days: workingDays,
+            open: openTime,
+            close: closeTime,
+          },
+          social_links: {
+            instagram: formatOptionalUrl(instagram),
+            facebook: formatOptionalUrl(facebook),
+            website: formatOptionalUrl(website),
+          },
+          images: finalImages.filter(Boolean),
+          is_setup_complete: true,
+        })
+        .eq("id", business.id)
+        .eq("user_id", business.user_id);
+
+      if (updateError) {
+        setError(updateError.message);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      navigate(`/dashboard/${slug}`);
+    } catch (uploadError: any) {
+      console.error(uploadError);
+      setError(
+        uploadError?.message || "Something went wrong while saving your setup."
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setIsSaving(false);
+    }
   }
-
-  function compressImage(file: File, maxWidth = 1000, quality = 0.7) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const img = new Image();
-
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-
-        const scale = Math.min(1, maxWidth / img.width);
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-
-        const ctx = canvas.getContext("2d");
-
-        if (!ctx) {
-          reject(new Error("Could not prepare image"));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-
-      img.onerror = () => reject(new Error("Could not load image"));
-      img.src = reader.result as string;
-    };
-
-    reader.onerror = () => reject(new Error("Could not read image"));
-    reader.readAsDataURL(file);
-  });
-}
 
   async function handleImageUpload(
-  e: ChangeEvent<HTMLInputElement>,
-  imageIndex: number
-) {
-  const file = e.target.files?.[0];
-  if (!file) return;
+    e: ChangeEvent<HTMLInputElement>,
+    imageIndex: number
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  try {
-    const compressedImage = await compressImage(file);
+    try {
+      const compressedFile = await compressImage(file);
+      const previewUrl = URL.createObjectURL(compressedFile);
 
-    setImages((prev) => {
-      const next = [...prev];
-      next[imageIndex] = compressedImage;
-      return next.slice(0, 4);
-    });
-  } catch (error) {
-    console.error(error);
-    setError("Could not upload image. Please try another photo.");
+      setImages((prev) => {
+        const next = [...prev];
+        next[imageIndex] = previewUrl;
+        return next.slice(0, 4);
+      });
+
+      setImageFiles((prev) => {
+        const next = [...prev];
+        next[imageIndex] = compressedFile;
+        return next.slice(0, 4);
+      });
+    } catch (imageError) {
+      console.error(imageError);
+      setError("Could not upload image. Please try another photo.");
+    }
   }
-}
 
   function removeImage(imageIndex: number) {
     setImages((prev) => {
       const next = [...prev];
       next[imageIndex] = "";
+      return next;
+    });
+
+    setImageFiles((prev) => {
+      const next = [...prev];
+      next[imageIndex] = null;
       return next;
     });
   }
@@ -316,6 +466,36 @@ export default function BusinessSetup() {
 
   const inputClass =
     "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-4 py-16">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
+          <h1 className="text-xl font-semibold text-gray-950">
+            Loading setup
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Preparing your business profile.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!business) {
+    return (
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-4 py-16">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
+          <h1 className="text-xl font-semibold text-gray-950">
+            Business not found
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">
+            This setup link is invalid or expired.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] px-0 py-0 text-gray-900 sm:px-6 sm:py-6 lg:px-8">
@@ -699,9 +879,10 @@ export default function BusinessSetup() {
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-[#0F3D2E] p-4 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
+              disabled={isSaving}
+              className="w-full rounded-xl bg-[#0F3D2E] p-4 text-sm font-semibold text-white transition hover:bg-[#0c2f23] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Finish Setup
+              {isSaving ? "Saving Setup..." : "Finish Setup"}
             </button>
           </form>
 

@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Globe,
   MapPin,
@@ -224,6 +225,25 @@ function getSlugFromLink(value: string) {
   }
 }
 
+function getBusinessStatus(workingHours?: WorkingHours) {
+  if (!workingHours) return "Unknown";
+
+  const now = new Date();
+  const currentDay = now.toLocaleDateString("en-US", {
+    weekday: "long",
+  });
+
+  if (!workingHours.days?.includes(currentDay)) return "Closed";
+
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+  const openTime = timeToMinutes(workingHours.open);
+  const closeTime = timeToMinutes(workingHours.close);
+
+  return currentTime >= openTime && currentTime <= closeTime
+    ? "Open"
+    : "Closed";
+}
+
 function BookingExperience({
   business,
   onBookingCreated,
@@ -232,7 +252,9 @@ function BookingExperience({
   bookings: Booking[];
   onBookingCreated: (booking: Booking) => void;
 }) {
-  const [selectedService, setSelectedService] = useState("");
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [name, setName] = useState("");
@@ -259,6 +281,10 @@ function BookingExperience({
   const mainImage = businessImages[0];
   const galleryImages = businessImages.slice(1, 4);
 
+  const businessStatus = useMemo(() => {
+    return getBusinessStatus(business.workingHours);
+  }, [business.workingHours, currentTime]);
+
   const showStatus = Boolean(
     business.statusText &&
       business.statusCreatedAt &&
@@ -266,11 +292,36 @@ function BookingExperience({
         STATUS_DURATION
   );
 
-  const selectedServiceDetails = useMemo(() => {
-    return business.services?.find(
-      (service) => getServiceName(service) === selectedService
+  const selectedServiceNames = useMemo(() => {
+    return selectedServices.map((service) => service.name);
+  }, [selectedServices]);
+
+  const selectedServicesLabel = useMemo(() => {
+    if (!selectedServices.length) return "Select services";
+    if (selectedServices.length === 1) return selectedServices[0].name;
+
+    return `${selectedServices.length} services selected`;
+  }, [selectedServices]);
+
+  const filteredServices = useMemo(() => {
+    const query = serviceSearch.trim().toLowerCase();
+
+    return [...business.services]
+      .sort((a, b) => getServiceName(a).localeCompare(getServiceName(b)))
+      .filter((service) => {
+        if (!query) return true;
+        return getServiceName(service).toLowerCase().includes(query);
+      });
+  }, [business.services, serviceSearch]);
+
+  const totalPrice = useMemo(() => {
+    return selectedServices.reduce(
+      (sum, service) => sum + (getServicePrice(service) || 0),
+      0
     );
-  }, [business.services, selectedService]);
+  }, [selectedServices]);
+
+  const depositAmount = totalPrice * 0.25;
 
   const socialLinks = useMemo(() => {
     return [
@@ -344,13 +395,28 @@ function BookingExperience({
   const availableSlots = timeSlots.filter((slot) => !bookedTimes.includes(slot));
 
   const inputClass =
-    "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
+    "box-border w-full min-w-0 max-w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm";
 
-  async function handleSubmit() {
+  function toggleService(service: Service) {
+    setError("");
+
+    setSelectedServices((prev) => {
+      const serviceName = getServiceName(service);
+      const exists = prev.some((item) => getServiceName(item) === serviceName);
+
+      if (exists) {
+        return prev.filter((item) => getServiceName(item) !== serviceName);
+      }
+
+      return [...prev, service];
+    });
+  }
+
+  async function submitBooking(paymentMode: "full" | "deposit") {
     setError("");
     setConfirmed(false);
 
-    if (!selectedService || !date || !time || !name || !phone) {
+    if (!selectedServices.length || !date || !time || !name || !phone) {
       setError("Please complete all fields before confirming your booking.");
       return;
     }
@@ -364,12 +430,17 @@ function BookingExperience({
       setIsSubmitting(true);
 
       const datetime = new Date(`${date}T${time}`).toISOString();
+      const serviceSummary = selectedServiceNames.join(", ");
+      const paymentNote =
+        paymentMode === "deposit"
+          ? `25% deposit option selected (${formatPrice(depositAmount)})`
+          : `Full booking selected (${formatPrice(totalPrice)})`;
 
       const { data, error: bookingError } = await supabase
         .from("bookings")
         .insert({
           business_slug: business.slug,
-          service: selectedService,
+          service: `${serviceSummary} - ${paymentNote}`,
           name,
           phone,
           datetime,
@@ -386,11 +457,13 @@ function BookingExperience({
       setBookedTimes((prev) => [...prev, time]);
 
       setConfirmed(true);
-      setSelectedService("");
+      setSelectedServices([]);
       setDate("");
       setTime("");
       setName("");
       setPhone("");
+      setServiceSearch("");
+      setServicePickerOpen(false);
     } catch (submitError) {
       console.error(submitError);
       setError("Something went wrong while confirming your booking.");
@@ -445,8 +518,16 @@ function BookingExperience({
                 )}
 
                 {business.department && (
-                  <span className="rounded-full bg-white/15 px-3 py-1 capitalize">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 capitalize">
                     {business.department}
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        businessStatus === "Open"
+                          ? "bg-green-400"
+                          : "bg-red-400"
+                      }`}
+                    />
+                    <span className="normal-case">{businessStatus}</span>
                   </span>
                 )}
               </div>
@@ -529,47 +610,118 @@ function BookingExperience({
         <div className="min-w-0 space-y-6">
           <section className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
-              Choose a Service
+              Choose Services
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Select the service you would like to book.
+              Select one or more services for this booking.
             </p>
 
-            <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
-              {business.services?.map((service) => {
-                const serviceName = getServiceName(service);
-                const servicePrice = getServicePrice(service);
-                const isSelected = selectedService === serviceName;
+            <div className="relative mt-4">
+              <button
+                type="button"
+                onClick={() => setServicePickerOpen((value) => !value)}
+                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition hover:border-[#0F3D2E]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-950">
+                    {selectedServicesLabel}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                    {selectedServices.length
+                      ? `${formatPrice(totalPrice)} total`
+                      : "Tap to view service menu"}
+                  </p>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-gray-400 transition ${
+                    servicePickerOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
 
-                return (
-                  <button
-                    key={serviceName}
-                    type="button"
-                    onClick={() => setSelectedService(serviceName)}
-                    className={`min-w-0 rounded-xl border p-4 text-left transition ${
-                      isSelected
-                        ? "border-[#0F3D2E] bg-[#FAF7EF] ring-2 ring-[#0F3D2E]/15"
-                        : "border-gray-200 bg-white hover:border-[#0F3D2E]"
-                    }`}
-                  >
-                    <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-gray-950">
-                          {serviceName}
-                        </p>
-                        <p className="mt-1 truncate text-sm font-medium text-[#0F3D2E]">
-                          {formatPrice(servicePrice)}
-                        </p>
-                      </div>
-
-                      {isSelected && (
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-[#0F3D2E]" />
-                      )}
+              {servicePickerOpen && (
+                <div className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-xl">
+                  <div className="border-b border-[#EFE7D6] p-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                      <input
+                        value={serviceSearch}
+                        onChange={(e) => setServiceSearch(e.target.value)}
+                        placeholder="Search services"
+                        className={`${inputClass} pl-10`}
+                      />
                     </div>
-                  </button>
-                );
-              })}
+                  </div>
+
+                  <div className="max-h-72 overflow-y-auto p-2">
+                    {filteredServices.length ? (
+                      <div className="space-y-2">
+                        {filteredServices.map((service) => {
+                          const serviceName = getServiceName(service);
+                          const servicePrice = getServicePrice(service);
+                          const isSelected =
+                            selectedServiceNames.includes(serviceName);
+
+                          return (
+                            <button
+                              key={serviceName}
+                              type="button"
+                              onClick={() => toggleService(service)}
+                              className={`flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+                                isSelected
+                                  ? "border-[#0F3D2E] bg-[#FAF7EF]"
+                                  : "border-gray-100 bg-white hover:border-[#0F3D2E]/40 hover:bg-[#FAF7EF]"
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-gray-950">
+                                  {serviceName}
+                                </p>
+                                <p className="mt-0.5 text-sm text-[#0F3D2E]">
+                                  {formatPrice(servicePrice)}
+                                </p>
+                              </div>
+
+                              <span
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                  isSelected
+                                    ? "border-[#0F3D2E] bg-[#0F3D2E] text-white"
+                                    : "border-gray-300 bg-white"
+                                }`}
+                              >
+                                {isSelected && (
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                )}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-4 text-center text-sm text-gray-500">
+                        No services match your search.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {selectedServices.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedServices.map((service) => (
+                  <button
+                    key={service.name}
+                    type="button"
+                    onClick={() => toggleService(service)}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full bg-[#FAF7EF] px-3 py-2 text-xs font-semibold text-[#0F3D2E]"
+                  >
+                    <span className="truncate">{service.name}</span>
+                    <X className="h-3.5 w-3.5 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
@@ -581,7 +733,7 @@ function BookingExperience({
             </p>
 
             <div className="mt-4 min-w-0 space-y-4">
-              <div className="min-w-0">
+              <div className="min-w-0 max-w-full overflow-hidden">
                 <label className="mb-2 block text-sm font-semibold">
                   Preferred Date
                 </label>
@@ -694,15 +846,27 @@ function BookingExperience({
             <div className="mt-4 space-y-4 text-sm">
               <div className="flex min-w-0 gap-3">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#0F3D2E]" />
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-950">Service</p>
-                  <p className="truncate text-gray-500">
-                    {selectedService || "Not selected"}
-                  </p>
-                  {selectedServiceDetails && (
-                    <p className="mt-1 truncate font-medium text-[#0F3D2E]">
-                      {formatPrice(getServicePrice(selectedServiceDetails))}
-                    </p>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-gray-950">Services</p>
+
+                  {selectedServices.length ? (
+                    <div className="mt-2 space-y-2">
+                      {selectedServices.map((service) => (
+                        <div
+                          key={service.name}
+                          className="flex min-w-0 items-center justify-between gap-3"
+                        >
+                          <p className="truncate text-gray-500">
+                            {service.name}
+                          </p>
+                          <p className="shrink-0 font-medium text-[#0F3D2E]">
+                            {formatPrice(service.price)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">Not selected</p>
                   )}
                 </div>
               </div>
@@ -728,6 +892,26 @@ function BookingExperience({
               </div>
             </div>
 
+            <div className="mt-5 rounded-2xl bg-[#FAF7EF] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-gray-950">
+                  Total Price
+                </p>
+                <p className="text-lg font-semibold text-[#0F3D2E]">
+                  {formatPrice(totalPrice)}
+                </p>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#D8D0BE] pt-3">
+                <p className="text-xs font-medium text-gray-500">
+                  25% deposit to secure booking
+                </p>
+                <p className="text-sm font-semibold text-gray-950">
+                  {formatPrice(depositAmount)}
+                </p>
+              </div>
+            </div>
+
             {error && (
               <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
@@ -742,11 +926,20 @@ function BookingExperience({
 
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => submitBooking("full")}
               disabled={isSubmitting}
               className="mt-5 w-full rounded-xl bg-[#0F3D2E] p-4 text-sm font-semibold text-white transition hover:bg-[#0c2f23] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? "Confirming..." : "Confirm Booking"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => submitBooking("deposit")}
+              disabled={isSubmitting || totalPrice <= 0}
+              className="mt-2 w-full rounded-xl border border-[#0F3D2E]/20 px-4 py-2.5 text-xs font-semibold text-[#0F3D2E] transition hover:bg-[#FAF7EF] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Book with 25% deposit
             </button>
           </div>
         </aside>

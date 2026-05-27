@@ -11,6 +11,7 @@ import {
   MapPin,
   MessageCircle,
   Plus,
+  Search,
   Share2,
   Trash2,
   User,
@@ -175,7 +176,7 @@ async function uploadBusinessImage(
   const { data } = supabase.storage.from("business-images").getPublicUrl(path);
 
   return data.publicUrl;
-} 
+}
 
 export default function BusinessSetup() {
   const { slug } = useParams();
@@ -195,6 +196,7 @@ export default function BusinessSetup() {
   const [department, setDepartment] = useState("");
   const [serviceInput, setServiceInput] = useState("");
   const [servicePriceInput, setServicePriceInput] = useState("");
+  const [serviceSearch, setServiceSearch] = useState("");
   const [services, setServices] = useState<Service[]>([]);
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const [openTime, setOpenTime] = useState("09:00");
@@ -284,6 +286,21 @@ export default function BusinessSetup() {
 
     const total = services.reduce((sum, service) => sum + service.price, 0);
     return total / services.length;
+  }, [services]);
+
+  const filteredServices = useMemo(() => {
+    const query = serviceSearch.trim().toLowerCase();
+
+    return [...services]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter((service) => {
+        if (!query) return true;
+        return service.name.toLowerCase().includes(query);
+      });
+  }, [services, serviceSearch]);
+
+  const serviceTotal = useMemo(() => {
+    return services.reduce((sum, service) => sum + service.price, 0);
   }, [services]);
 
   const socialCount = [instagram, facebook, website].filter((link) =>
@@ -442,6 +459,7 @@ export default function BusinessSetup() {
     setServices((prev) => [...prev, { name, price }]);
     setServiceInput("");
     setServicePriceInput("");
+    setServiceSearch("");
   }
 
   function removeService(serviceName: string) {
@@ -679,70 +697,144 @@ export default function BusinessSetup() {
             </section>
 
             <section>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold">Services</label>
-                <span className="shrink-0 text-xs text-gray-500">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <label className="block text-sm font-semibold">
+                    Service catalog
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Add as many services as you need. The list stays compact.
+                  </p>
+                </div>
+
+                <span className="shrink-0 rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
                   {services.length} added
                 </span>
               </div>
 
-              <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_150px_auto]">
-                <input
-                  type="text"
-                  value={serviceInput}
-                  onChange={(e) => setServiceInput(e.target.value)}
-                  placeholder="e.g. Haircut"
-                  className={inputClass}
-                />
+              <div className="rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF] p-3">
+                <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_150px_auto]">
+                  <input
+                    type="text"
+                    value={serviceInput}
+                    onChange={(e) => setServiceInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addService();
+                      }
+                    }}
+                    placeholder="e.g. Haircut"
+                    className={inputClass}
+                  />
 
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={servicePriceInput}
-                  onChange={(e) => setServicePriceInput(e.target.value)}
-                  placeholder="Price"
-                  className={inputClass}
-                />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={servicePriceInput}
+                    onChange={(e) => setServicePriceInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addService();
+                      }
+                    }}
+                    placeholder="Price"
+                    className={inputClass}
+                  />
 
-                <button
-                  type="button"
-                  onClick={addService}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23] md:w-auto"
-                >
-                  <Plus className="h-4 w-4 shrink-0" />
-                  Add
-                </button>
-              </div>
-
-              {services.length > 0 && (
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                  {services.map((service) => (
-                    <div
-                      key={service.name}
-                      className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-200 bg-[#FAF7EF] px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-gray-900">
-                          {service.name}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {formatPrice(service.price)}
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => removeService(service.name)}
-                        className="shrink-0 rounded-lg p-2 text-red-500 transition hover:bg-red-50"
-                        aria-label={`Remove ${service.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={addService}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23] md:w-auto"
+                  >
+                    <Plus className="h-4 w-4 shrink-0" />
+                    Add
+                  </button>
                 </div>
-              )}
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                      Services
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-gray-950">
+                      {services.length}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                      Average
+                    </p>
+                    <p className="mt-0.5 truncate text-sm font-semibold text-gray-950">
+                      {services.length ? formatPrice(averagePrice) : "KES 0"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                      Total menu value
+                    </p>
+                    <p className="mt-0.5 truncate text-sm font-semibold text-gray-950">
+                      {formatPrice(serviceTotal)}
+                    </p>
+                  </div>
+                </div>
+
+                {services.length > 0 && (
+                  <div className="mt-3 rounded-2xl border border-[#D8D0BE] bg-white">
+                    <div className="border-b border-[#EFE7D6] p-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={serviceSearch}
+                          onChange={(e) => setServiceSearch(e.target.value)}
+                          placeholder="Search services"
+                          className={`${inputClass} pl-10`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="max-h-72 min-h-0 overflow-y-auto p-2">
+                      {filteredServices.length > 0 ? (
+                        <div className="space-y-2">
+                          {filteredServices.map((service) => (
+                            <div
+                              key={service.name}
+                              className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-3 py-3 transition hover:bg-[#FAF7EF]"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-gray-900">
+                                  {service.name}
+                                </p>
+                                <p className="mt-0.5 text-sm text-gray-500">
+                                  {formatPrice(service.price)}
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => removeService(service.name)}
+                                className="shrink-0 rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                aria-label={`Remove ${service.name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-4 text-center text-sm text-gray-500">
+                          No services match your search.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </section>
 
             <section>

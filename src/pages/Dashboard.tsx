@@ -228,6 +228,31 @@ export default function Dashboard() {
     }
 
     loadDashboard();
+
+    const channel = supabase
+        .channel(`bookings:${slug}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "bookings",
+            filter: `business_slug=eq.${slug}`,
+          },
+          (payload) => {
+            const booking = payload.new as BookingRow;
+
+            setBookings((prev) => [
+              ...prev,
+              normalizeBooking(booking),
+            ]);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
   }, [slug, navigate]);
 
   async function updateStatus() {

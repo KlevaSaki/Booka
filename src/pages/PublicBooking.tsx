@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -9,7 +10,9 @@ import {
   Menu,
   MessageCircle,
   Phone,
+  Search,
   Share2,
+  Store,
   User,
   X,
 } from "lucide-react";
@@ -66,6 +69,7 @@ type VisitedBusiness = {
   slug: string;
   name: string;
   location?: string;
+  department?: string;
   visitedAt: number;
 };
 
@@ -114,14 +118,6 @@ function minutesToTime(minutes: number) {
   return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
-// function getDateKey(date: Date) {
-//   const year = date.getFullYear();
-//   const month = String(date.getMonth() + 1).padStart(2, "0");
-//   const day = String(date.getDate()).padStart(2, "0");
-
-//   return `${year}-${month}-${day}`;
-// }
-
 function formatTimeLabel(time: string) {
   return new Date(`2026-01-01T${time}`).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -136,6 +132,12 @@ function formatPrice(price?: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function formatDepartment(department?: string) {
+  if (!department) return "Other";
+
+  return department.charAt(0).toUpperCase() + department.slice(1);
 }
 
 function getServiceName(service: Service | string) {
@@ -180,12 +182,6 @@ function normalizeBooking(row: BookingRow): Booking {
   };
 }
 
-// function isStatusActive(createdAt?: string) {
-//   if (!createdAt) return false;
-
-//   return Date.now() - new Date(createdAt).getTime() < STATUS_DURATION;
-// }
-
 function loadVisitedBusinesses(): VisitedBusiness[] {
   try {
     const data = localStorage.getItem(VISITED_BUSINESSES_KEY);
@@ -203,10 +199,11 @@ function saveVisitedBusiness(business: Business) {
       slug: business.slug,
       name: business.name,
       location: business.location,
+      department: business.department,
       visitedAt: Date.now(),
     },
     ...visited.filter((item) => item.slug !== business.slug),
-  ].slice(0, 20);
+  ].slice(0, 30);
 
   localStorage.setItem(VISITED_BUSINESSES_KEY, JSON.stringify(next));
   return next;
@@ -245,6 +242,7 @@ function BookingExperience({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -311,40 +309,37 @@ function BookingExperience({
     return slots;
   }, [business.workingHours]);
 
-  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  useEffect(() => {
+    async function loadBookedTimes() {
+      if (!date) {
+        setBookedTimes([]);
+        return;
+      }
 
-useEffect(() => {
-  async function loadBookedTimes() {
-    if (!date) {
-      setBookedTimes([]);
-      return;
+      const { data, error } = await supabase.rpc("get_booked_times", {
+        target_business_slug: business.slug,
+        target_date: date,
+      });
+
+      if (error) {
+        console.error(error);
+        setBookedTimes([]);
+        return;
+      }
+
+      setBookedTimes(
+        (data || []).map((booking: { datetime: string }) => {
+          const bookingDate = new Date(booking.datetime);
+
+          return `${String(bookingDate.getHours()).padStart(2, "0")}:${String(
+            bookingDate.getMinutes()
+          ).padStart(2, "0")}`;
+        })
+      );
     }
 
-    const { data, error } = await supabase.rpc("get_booked_times", {
-      target_business_slug: business.slug,
-      target_date: date,
-    });
-
-    if (error) {
-      console.error(error);
-      setBookedTimes([]);
-      return;
-    }
-
-    setBookedTimes(
-      (data || []).map((booking: { datetime: string }) => {
-        const bookingDate = new Date(booking.datetime);
-
-        return `${String(bookingDate.getHours()).padStart(2, "0")}:${String(
-          bookingDate.getMinutes()
-        ).padStart(2, "0")}`;
-      })
-    );
-  }
-
-  loadBookedTimes();
-  setBookedTimes((prev) => [...prev, time]);
-}, [business.slug, date]);
+    loadBookedTimes();
+  }, [business.slug, date]);
 
   const availableSlots = timeSlots.filter((slot) => !bookedTimes.includes(slot));
 
@@ -388,6 +383,7 @@ useEffect(() => {
       }
 
       onBookingCreated(normalizeBooking(data as BookingRow));
+      setBookedTimes((prev) => [...prev, time]);
 
       setConfirmed(true);
       setSelectedService("");
@@ -416,13 +412,13 @@ useEffect(() => {
               />
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center">
-                <h1 className="wrap-break-word text-4xl font-semibold text-[#FAF7EF]">
+                <h1 className="break-words text-4xl font-semibold text-[#FAF7EF]">
                   {business.name}
                 </h1>
               </div>
             )}
 
-            <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
             {showStatus && (
               <button
@@ -436,7 +432,7 @@ useEffect(() => {
             )}
 
             <div className="absolute bottom-0 left-0 right-0 min-w-0 p-5 text-white sm:p-7">
-              <h1 className="wrap-break-word text-3xl font-semibold tracking-tight sm:text-4xl">
+              <h1 className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">
                 {business.name}
               </h1>
 
@@ -459,7 +455,7 @@ useEffect(() => {
 
           <div className="flex min-w-0 flex-col justify-between gap-5 p-5 sm:p-7">
             <div className="min-w-0">
-              <p className="wrap-break-word text-sm leading-6 text-gray-600">
+              <p className="break-words text-sm leading-6 text-gray-600">
                 {business.description ||
                   "Choose a service, pick an available time, and confirm your booking in a few quick steps."}
               </p>
@@ -468,7 +464,7 @@ useEffect(() => {
                 <p className="text-sm font-semibold text-gray-950">
                   Opening Hours
                 </p>
-                <p className="mt-1 wrap-break-word text-sm text-gray-600">
+                <p className="mt-1 break-words text-sm text-gray-600">
                   {business.workingHours?.days?.join(", ") || "Days not set"}
                 </p>
                 <p className="mt-1 text-sm text-gray-600">
@@ -850,12 +846,38 @@ export default function PublicBooking() {
         .eq("business_slug", slug)
         .order("datetime", { ascending: true });
 
-      setBookings((bookingData || []).map((booking) => normalizeBooking(booking as BookingRow)));
+      setBookings(
+        (bookingData || []).map((booking) =>
+          normalizeBooking(booking as BookingRow)
+        )
+      );
       setIsLoading(false);
     }
 
     loadPublicBusiness();
   }, [slug]);
+
+  const groupedVisitedBusinesses = useMemo(() => {
+    return visitedBusinesses.reduce<Record<string, VisitedBusiness[]>>(
+      (groups, visitedBusiness) => {
+        const department = formatDepartment(visitedBusiness.department);
+
+        if (!groups[department]) {
+          groups[department] = [];
+        }
+
+        groups[department].push(visitedBusiness);
+        return groups;
+      },
+      {}
+    );
+  }, [visitedBusinesses]);
+
+  const groupedDepartments = useMemo(() => {
+    return Object.keys(groupedVisitedBusinesses).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [groupedVisitedBusinesses]);
 
   function openBusiness(businessSlug: string) {
     setBusinessDrawerOpen(false);
@@ -914,10 +936,10 @@ export default function PublicBooking() {
       <button
         type="button"
         onClick={() => setBusinessDrawerOpen(true)}
-        className="fixed right-4 top-4 z-40 inline-flex items-center gap-2 rounded-full bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white shadow-lg lg:hidden"
+        className="fixed right-4 top-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#0F3D2E] text-white shadow-lg ring-1 ring-white/20 lg:hidden"
+        aria-label="Open businesses"
       >
-        <Menu className="h-4 w-4" />
-        Businesses
+        <Menu className="h-5 w-5" />
       </button>
 
       {businessDrawerOpen && (
@@ -925,91 +947,144 @@ export default function PublicBooking() {
           type="button"
           aria-label="Close businesses drawer"
           onClick={() => setBusinessDrawerOpen(false)}
-          className="fixed inset-0 z-40 bg-black/45 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-80 max-w-[88vw] flex-col bg-[#0F3D2E] p-5 shadow-2xl transition-transform duration-300 lg:hidden ${
+        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-[360px] max-w-[92vw] flex-col bg-[#FBFAF6] shadow-2xl transition-transform duration-300 lg:hidden ${
           businessDrawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-white">
-              Saved
-            </p>
-            <h2 className="text-xl font-semibold text-white">Businesses</h2>
-          </div>
+        <div className="border-b border-[#E3DAC8] bg-[#0F3D2E] p-5 text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#FAF7EF] text-[#0F3D2E]">
+                <Store className="h-5 w-5" />
+              </div>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight">
+                Businesses
+              </h2>
+              <p className="mt-1 text-sm leading-5 text-white/65">
+                Search by link or return to places you have visited.
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setBusinessDrawerOpen(false)}
-            className="rounded-xl bg-[#FAF7EF] p-2 text-[#0F3D2E]"
-            aria-label="Close businesses"
-          >
-            <X className="h-4 w-4" />
-          </button>
+            <button
+              type="button"
+              onClick={() => setBusinessDrawerOpen(false)}
+              className="rounded-full bg-white/10 p-2 text-white transition hover:bg-white/15"
+              aria-label="Close businesses"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="mb-4">
-          <input
-            type="text"
-            value={searchLink}
-            onChange={(e) => {
-              setSearchLink(e.target.value);
-              setSearchError("");
-            }}
-            placeholder="Paste business link"
-            className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10 sm:text-sm"
-          />
+        <div className="border-b border-[#E3DAC8] p-4">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Open by link
+          </label>
 
-          <button
-            type="button"
-            onClick={handleSearch}
-            className="mt-2 w-full rounded-xl bg-[#FAF7EF] p-2 text-sm font-semibold text-[#0F3D2E] transition hover:bg-white"
-          >
-            Open Business
-          </button>
+          <div className="flex min-w-0 gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchLink}
+                onChange={(e) => {
+                  setSearchLink(e.target.value);
+                  setSearchError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSearch();
+                }}
+                placeholder="Paste booking link"
+                className="w-full min-w-0 rounded-xl border border-[#D8D0BE] bg-white px-4 py-3 pl-10 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#0F3D2E] text-white transition hover:bg-[#0c2f23]"
+              aria-label="Open business link"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
 
           {searchError && (
-            <p className="mt-2 text-sm text-red-100">{searchError}</p>
+            <p className="mt-2 text-sm text-red-600">{searchError}</p>
           )}
         </div>
 
-        {visitedBusinesses.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-4 text-sm text-gray-500">
-            Visited businesses will appear here.
-          </div>
-        ) : (
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-            {visitedBusinesses.map((visitedBusiness) => {
-              const isActive = visitedBusiness.slug === business.slug;
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {visitedBusinesses.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#D8D0BE] bg-white p-5 text-sm leading-6 text-gray-500">
+              Visited businesses will appear here after you open a booking page.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {groupedDepartments.map((department) => (
+                <section key={department}>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      {department}
+                    </h3>
+                    <span className="rounded-full bg-[#EFE7D6] px-2 py-0.5 text-[11px] font-semibold text-[#0F3D2E]">
+                      {groupedVisitedBusinesses[department].length}
+                    </span>
+                  </div>
 
-              return (
-                <button
-                  key={visitedBusiness.slug}
-                  type="button"
-                  onClick={() => openBusiness(visitedBusiness.slug)}
-                  className={`w-full rounded-xl border p-4 text-left transition ${
-                    isActive
-                      ? "border-[#0F3D2E] bg-[#FAF7EF]"
-                      : "border-gray-200 bg-white hover:bg-gray-50"
-                  }`}
-                >
-                  <p className="truncate font-semibold text-gray-950">
-                    {visitedBusiness.name}
-                  </p>
-                  {visitedBusiness.location && (
-                    <p className="mt-1 truncate text-sm text-gray-500">
-                      {visitedBusiness.location}
-                    </p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  <div className="space-y-2">
+                    {groupedVisitedBusinesses[department].map(
+                      (visitedBusiness) => {
+                        const isActive = visitedBusiness.slug === business.slug;
+
+                        return (
+                          <button
+                            key={visitedBusiness.slug}
+                            type="button"
+                            onClick={() => openBusiness(visitedBusiness.slug)}
+                            className={`flex w-full min-w-0 items-center gap-3 rounded-2xl border p-3 text-left transition ${
+                              isActive
+                                ? "border-[#0F3D2E] bg-[#FAF7EF] shadow-sm"
+                                : "border-[#E3DAC8] bg-white hover:border-[#0F3D2E]/40 hover:bg-[#FAF7EF]"
+                            }`}
+                          >
+                            <div
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                                isActive
+                                  ? "bg-[#0F3D2E] text-white"
+                                  : "bg-[#F3EFE3] text-[#0F3D2E]"
+                              }`}
+                            >
+                              <Store className="h-4 w-4" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-gray-950">
+                                {visitedBusiness.name}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-gray-500">
+                                {visitedBusiness.location || "Location not set"}
+                              </p>
+                            </div>
+
+                            {isActive && (
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-[#0F3D2E]" />
+                            )}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
       </aside>
 
       <BookingExperience

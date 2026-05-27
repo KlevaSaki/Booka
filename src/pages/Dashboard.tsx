@@ -93,6 +93,13 @@ type BookingRow = {
   datetime: string;
 };
 
+type Notification = {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: number;
+};
+
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
@@ -175,85 +182,114 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusText, setStatusText] = useState("");
   const [statusError, setStatusError] = useState("");
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  useEffect(() => {
-    async function loadDashboard() {
-      setIsLoading(true);
+  function addNotification(booking: Booking) {
+  setNotifications((prev) => [
+    {
+      id: booking.id,
+      title: "New booking",
+      message: `${booking.name} booked ${booking.service}`,
+      createdAt: Date.now(),
+    },
+    ...prev,
+  ]);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  window.setTimeout(() => {
+    setNotifications((prev) =>
+      prev.filter((notification) => notification.id !== booking.id)
+    );
+  }, 6000);
+}
 
-      if (!user) {
-        navigate("/");
-        return;
-      }
+    useEffect(() => {
+  let channel: ReturnType<typeof supabase.channel> | null = null;
 
-      const { data: businessData, error: businessError } = await supabase
-        .from("businesses")
-        .select("*")
-        .eq("slug", slug)
-        .eq("user_id", user.id)
-        .single();
+  async function loadDashboard() {
+    setIsLoading(true);
 
-      if (businessError || !businessData) {
-        setBusiness(null);
-        setIsLoading(false);
-        return;
-      }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      const mappedBusiness = normalizeBusiness(businessData as BusinessRow);
-
-      setBusiness(mappedBusiness);
-      setStatusText(mappedBusiness.statusText || "");
-
-      if (!mappedBusiness.isSetupComplete) {
-        navigate(`/setup/${mappedBusiness.slug}`);
-        return;
-      }
-
-      const { data: bookingData } = await supabase
-        .from("bookings")
-        .select("*")
-        .eq("business_slug", slug)
-        .order("datetime", { ascending: true });
-
-      setBookings(
-        ((bookingData || []) as BookingRow[]).map((booking) =>
-          normalizeBooking(booking)
-        )
-      );
-
-      setIsLoading(false);
+    if (!user) {
+      navigate("/");
+      return;
     }
 
-    loadDashboard();
+    const { data: businessData, error: businessError } = await supabase
+      .from("businesses")
+      .select("*")
+      .eq("slug", slug)
+      .eq("user_id", user.id)
+      .single();
 
-    const channel = supabase
-        .channel(`bookings:${slug}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "bookings",
-            filter: `business_slug=eq.${slug}`,
-          },
-          (payload) => {
-            const booking = payload.new as BookingRow;
+    if (businessError || !businessData) {
+      setBusiness(null);
+      setIsLoading(false);
+      return;
+    }
 
-            setBookings((prev) => [
-              ...prev,
-              normalizeBooking(booking),
-            ]);
-          }
-        )
-        .subscribe();
+    const mappedBusiness = normalizeBusiness(businessData as BusinessRow);
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-  }, [slug, navigate]);
+    setBusiness(mappedBusiness);
+    setStatusText(mappedBusiness.statusText || "");
+
+    if (!mappedBusiness.isSetupComplete) {
+      navigate(`/setup/${mappedBusiness.slug}`);
+      return;
+    }
+
+    const { data: bookingData } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("business_slug", slug)
+      .order("datetime", { ascending: true });
+
+    setBookings(
+      ((bookingData || []) as BookingRow[]).map((booking) =>
+        normalizeBooking(booking)
+      )
+    );
+
+    channel = supabase
+      .channel(`bookings:${slug}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "bookings",
+          filter: `business_slug=eq.${slug}`,
+        },
+        (payload) => {
+          const booking = payload.new as BookingRow;
+
+          setBookings((prev) => {
+            const alreadyExists = prev.some((item) => item.id === booking.id);
+
+            if (alreadyExists) return prev;
+
+                const normalizedBooking = normalizeBooking(booking);
+                addNotification(normalizedBooking);
+
+                return [...prev, normalizedBooking];
+          });
+        }
+      )
+      .subscribe();
+
+    setIsLoading(false);
+  }
+
+  loadDashboard();
+
+  return () => {
+    if (channel) {
+      supabase.removeChannel(channel);
+    }
+  };
+}, [slug, navigate]);
 
   async function updateStatus() {
     if (!business) return;
@@ -352,6 +388,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <main className="min-h-screen overflow-x-hidden bg-[#FAF7EF] p-4 sm:p-6">
+
         <div className="mx-auto max-w-md rounded-2xl border border-[#D8D0BE] bg-white p-6 text-center shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-gray-950">
             Loading dashboard
@@ -392,6 +429,23 @@ export default function Dashboard() {
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
+      {notifications.length > 0 && (
+        <div className="fixed right-4 top-4 z-50 w-[calc(100vw-2rem)] max-w-sm space-y-2">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className="rounded-2xl border border-[#D8D0BE] bg-white p-4 shadow-xl"
+            >
+              <p className="text-sm font-semibold text-gray-950">
+                {notification.title}
+              </p>
+              <p className="mt-1 text-sm text-gray-600">
+                {notification.message}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
       <section className="overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-sm">
   <div className="relative min-h-64 bg-[#0F3D2E]">
     {business.images?.[0] && (

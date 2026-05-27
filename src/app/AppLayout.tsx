@@ -18,6 +18,7 @@ type Business = {
   slug: string;
   name: string;
   location?: string | null;
+  is_setup_complete?: boolean | null;
 };
 
 function getSlugFromPath(pathname: string) {
@@ -38,6 +39,8 @@ export default function AppLayout() {
   const activeSlug = routeSlug || business?.slug || "";
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadActiveBusiness() {
       setIsLoadingBusiness(true);
 
@@ -45,16 +48,20 @@ export default function AppLayout() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      if (cancelled) return;
+
       if (!user) {
         setBusiness(null);
         setIsLoadingBusiness(false);
+        navigate("/");
         return;
       }
 
       let query = supabase
         .from("businesses")
-        .select("slug, name, location")
-        .eq("user_id", user.id);
+        .select("slug, name, location, is_setup_complete")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
       if (routeSlug) {
         query = query.eq("slug", routeSlug);
@@ -62,18 +69,32 @@ export default function AppLayout() {
 
       const { data, error } = await query.limit(1).maybeSingle();
 
+      if (cancelled) return;
+
       if (error || !data) {
         setBusiness(null);
         setIsLoadingBusiness(false);
         return;
       }
 
-      setBusiness(data as Business);
+      const loadedBusiness = data as Business;
+
+      setBusiness(loadedBusiness);
       setIsLoadingBusiness(false);
+
+      const isSetupRoute = location.pathname.startsWith("/setup/");
+
+      if (!loadedBusiness.is_setup_complete && !isSetupRoute) {
+        navigate(`/setup/${loadedBusiness.slug}`);
+      }
     }
 
     loadActiveBusiness();
-  }, [routeSlug]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeSlug, location.pathname, navigate]);
 
   const bookingLink = useMemo(() => {
     if (!activeSlug) return "";
@@ -107,6 +128,12 @@ export default function AppLayout() {
     window.setTimeout(() => {
       setCopied(false);
     }, 1800);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setBusiness(null);
+    navigate("/");
   }
 
   function closeSidebar() {
@@ -189,6 +216,12 @@ export default function AppLayout() {
             <p className="mt-1 truncate text-sm text-white/60">
               {business.location || "Location not set"}
             </p>
+
+            {!business.is_setup_complete && (
+              <p className="mt-3 rounded-lg bg-[#FAF7EF] px-3 py-2 text-xs font-semibold text-[#0F3D2E]">
+                Setup incomplete
+              </p>
+            )}
           </div>
         )}
 
@@ -305,6 +338,14 @@ export default function AppLayout() {
               <Share2 className="h-4 w-4 shrink-0" />
               <span className="truncate">Share on WhatsApp</span>
             </a>
+
+            <button
+              type="button"
+              onClick={signOut}
+              className="flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
+            >
+              Sign out
+            </button>
           </div>
         )}
       </aside>

@@ -1,9 +1,47 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
-import { useBookingStore } from "../../bookings/store";
-import { useBusinessStore } from "../../business/store";
+import { supabase } from "../../../lib/supabase-client";
+
+type Service = {
+  name: string;
+  price: number;
+};
+
+type WorkingHours = {
+  days: string[];
+  open: string;
+  close: string;
+};
+
+type Business = {
+  slug: string;
+  workingHours?: WorkingHours;
+};
+
+type Booking = {
+  id: string;
+  businessSlug: string;
+  service: string;
+  name: string;
+  phone: string;
+  datetime: string;
+};
+
+type BusinessRow = {
+  slug: string;
+  working_hours?: WorkingHours | null;
+};
+
+type BookingRow = {
+  id: string;
+  business_slug: string;
+  service: string;
+  name: string;
+  phone: string;
+  datetime: string;
+};
 
 function toDateKey(date: Date) {
   const year = date.getFullYear();
@@ -23,15 +61,13 @@ function formatDateKeyLabel(dateKey: string) {
   });
 }
 
-function getDateKeyFromBooking(booking: any) {
+function getDateKeyFromBooking(booking: Booking) {
   if (booking.datetime) return toDateKey(new Date(booking.datetime));
-  if (booking.date) return booking.date;
-  if (booking.bookingDate) return booking.bookingDate;
 
   return toDateKey(new Date());
 }
 
-function getServiceName(service: any) {
+function getServiceName(service: Service | string) {
   if (typeof service === "string") return service;
   return service?.name || "Service";
 }
@@ -59,34 +95,131 @@ function formatBookingTime(datetime?: string) {
   });
 }
 
+function normalizeBusiness(row: BusinessRow): Business {
+  return {
+    slug: row.slug,
+    workingHours: row.working_hours || undefined,
+  };
+}
+
+function normalizeBooking(row: BookingRow): Booking {
+  return {
+    id: row.id,
+    businessSlug: row.business_slug,
+    service: row.service,
+    name: row.name,
+    phone: row.phone,
+    datetime: row.datetime,
+  };
+}
+
 export default function TodaySchedule() {
   const { slug } = useParams();
 
   const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const bookings = useBookingStore((s) => s.bookings);
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-  const business = useBusinessStore((s) =>
-    s.businesses.find((b) => b.slug === slug)
-  );
+    async function loadSchedule() {
+      if (!slug) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setBusiness(null);
+        setBookings([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: businessData } = await supabase
+        .from("businesses")
+        .select("slug, working_hours")
+        .eq("slug", slug)
+        .eq("user_id", user.id)
+        .single();
+
+      if (businessData) {
+        setBusiness(normalizeBusiness(businessData as BusinessRow));
+      }
+
+      const { data: bookingData } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("business_slug", slug)
+        .order("datetime", { ascending: true });
+
+      setBookings(
+        ((bookingData || []) as BookingRow[]).map((booking) =>
+          normalizeBooking(booking)
+        )
+      );
+
+      channel = supabase
+        .channel(`schedule:${slug}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "bookings",
+            filter: `business_slug=eq.${slug}`,
+          },
+          (payload) => {
+            const booking = normalizeBooking(payload.new as BookingRow);
+
+            setBookings((prev) => {
+              const alreadyExists = prev.some((item) => item.id === booking.id);
+
+              if (alreadyExists) return prev;
+
+              return [...prev, booking].sort(
+                (a, b) =>
+                  new Date(a.datetime).getTime() -
+                  new Date(b.datetime).getTime()
+              );
+            });
+          }
+        )
+        .subscribe();
+
+      setIsLoading(false);
+    }
+
+    loadSchedule();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [slug]);
 
   const businessBookings = useMemo(() => {
     return bookings.filter((booking) => booking.businessSlug === slug);
   }, [bookings, slug]);
 
   const bookingsByDate = useMemo(() => {
-    return businessBookings.reduce<Record<string, typeof businessBookings>>(
-      (acc, booking) => {
-        const dateKey = getDateKeyFromBooking(booking);
+    return businessBookings.reduce<Record<string, Booking[]>>((acc, booking) => {
+      const dateKey = getDateKeyFromBooking(booking);
 
-        if (!acc[dateKey]) acc[dateKey] = [];
-        acc[dateKey].push(booking);
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(booking);
 
-        return acc;
-      },
-      {}
-    );
+      return acc;
+    }, {});
   }, [businessBookings]);
 
   const selectedBookings = bookingsByDate[selectedDate] || [];
@@ -132,6 +265,23 @@ export default function TodaySchedule() {
     const today = new Date();
     setVisibleMonth(today);
     setSelectedDate(toDateKey(today));
+  }
+
+  if (isLoading) {
+    return (
+      <div className="mt-6 min-w-0 space-y-5 overflow-x-hidden">
+        <Card>
+          <div className="p-4 text-center">
+            <h2 className="text-lg font-semibold text-[#0F3D2E]">
+              Loading schedule
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Preparing your booking calendar.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   return (

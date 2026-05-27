@@ -485,7 +485,7 @@ export default function Dashboard() {
             />
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
+          <div className="absolute inset-0 bg-linear-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
 
           <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
             <button
@@ -556,7 +556,7 @@ export default function Dashboard() {
             <p className="text-sm font-semibold text-gray-950">
               Opening Hours
             </p>
-            <p className="mt-1 break-words text-sm text-gray-600">
+            <p className="mt-1 wrap-break-word text-sm text-gray-600">
               {business.workingHours?.days?.join(", ") || "Days not set"}
             </p>
             <p className="mt-1 text-sm text-gray-600">

@@ -7,7 +7,6 @@ import {
   Clipboard,
   ExternalLink,
   MapPin,
-  Search,
   Settings,
   Share2,
   Wallet,
@@ -203,7 +202,6 @@ export default function Dashboard() {
   const [isPostingStatus, setIsPostingStatus] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [serviceSearch, setServiceSearch] = useState("");
 
   function addNotification(booking: Booking) {
     setNotifications((prev) => [
@@ -386,7 +384,9 @@ export default function Dashboard() {
     const currentMonth = getMonthKey(new Date());
 
     return businessBookings
-      .filter((booking) => getMonthKey(new Date(booking.datetime)) === currentMonth)
+      .filter(
+        (booking) => getMonthKey(new Date(booking.datetime)) === currentMonth
+      )
       .reduce((total, booking) => {
         return total + getServiceRevenue(booking.service, business.services);
       }, 0);
@@ -414,17 +414,6 @@ export default function Dashboard() {
       ? "Open"
       : "Closed";
   }, [business]);
-
-  const filteredServices = useMemo(() => {
-    const query = serviceSearch.trim().toLowerCase();
-
-    return [...(business?.services || [])]
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .filter((service) => {
-        if (!query) return true;
-        return service.name.toLowerCase().includes(query);
-      });
-  }, [business?.services, serviceSearch]);
 
   const unreadNotifications = notifications.filter(
     (notification) => !notification.read
@@ -499,60 +488,19 @@ export default function Dashboard() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
 
           <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={toggleNotifications}
-                aria-label="Notifications"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF7EF] text-[#0F3D2E] shadow-sm transition hover:bg-white"
-              >
-                <Bell className="h-4 w-4" />
-              </button>
-
+            <button
+              type="button"
+              onClick={toggleNotifications}
+              aria-label="Notifications"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF7EF] text-[#0F3D2E] shadow-sm transition hover:bg-white"
+            >
+              <Bell className="h-4 w-4" />
               {unreadNotifications > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                   {unreadNotifications}
                 </span>
               )}
-
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white text-gray-900 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-[#EFE7D6] px-4 py-3">
-                    <p className="text-sm font-semibold">Notifications</p>
-                    <button
-                      type="button"
-                      onClick={() => setNotificationsOpen(false)}
-                      className="rounded-lg p-1 text-gray-400 hover:bg-gray-50 hover:text-gray-700"
-                      aria-label="Close notifications"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {notifications.length ? (
-                    <div className="max-h-80 overflow-y-auto p-2">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="rounded-xl border border-gray-100 p-3"
-                        >
-                          <p className="text-sm font-semibold text-gray-950">
-                            {notification.title}
-                          </p>
-                          <p className="mt-1 text-sm leading-5 text-gray-600">
-                            {notification.message}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-sm text-gray-500">
-                      New bookings will appear here while this dashboard is open.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            </button>
 
             <Link
               to={`/settings/${business.slug}`}
@@ -602,9 +550,84 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        <div className="bg-white p-5 sm:p-6">
+          <div className="min-w-0 rounded-xl bg-[#FAF7EF] p-4">
+            <p className="text-sm font-semibold text-gray-950">
+              Opening Hours
+            </p>
+            <p className="mt-1 break-words text-sm text-gray-600">
+              {business.workingHours?.days?.join(", ") || "Days not set"}
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              {business.workingHours?.open || "--"} -{" "}
+              {business.workingHours?.close || "--"}
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section className="grid min-w-0 gap-4 sm:grid-cols-3">
+      {notificationsOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close notifications"
+            onClick={() => setNotificationsOpen(false)}
+            className="fixed inset-0 z-40 bg-black/35"
+          />
+
+          <aside className="fixed inset-y-0 right-0 z-50 flex h-dvh w-[70vw] min-w-[320px] max-w-[720px] flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#EFE7D6] p-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Live updates
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-gray-950">
+                  Notifications
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen(false)}
+                className="rounded-xl bg-[#FAF7EF] p-2 text-[#0F3D2E] transition hover:bg-[#EFE7D6]"
+                aria-label="Close notifications"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              {notifications.length ? (
+                <div className="space-y-3">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className="rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF] p-4"
+                    >
+                      <p className="text-sm font-semibold text-gray-950">
+                        {notification.title}
+                      </p>
+                      <p className="mt-1 text-sm leading-5 text-gray-600">
+                        {notification.message}
+                      </p>
+                      <p className="mt-3 text-xs text-gray-400">
+                        {formatTime(new Date(notification.createdAt).toISOString())}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-5 text-sm leading-6 text-gray-500">
+                  New bookings will appear here while this dashboard is open.
+                </div>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
+
+      <section className="grid min-w-0 grid-cols-2 gap-4">
         <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
             <CalendarDays className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
@@ -625,7 +648,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
+        <div className="col-span-2 min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm">
           <p className="flex items-center gap-2 text-sm text-gray-500">
             <Wallet className="h-4 w-4 shrink-0 text-[#0F3D2E]" />
             Monthly Estimated Revenue
@@ -655,39 +678,24 @@ export default function Dashboard() {
             </div>
 
             {business.services?.length ? (
-              <div className="rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF] p-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                  <input
-                    value={serviceSearch}
-                    onChange={(e) => setServiceSearch(e.target.value)}
-                    placeholder="Search services"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10"
-                  />
-                </div>
-
-                <div className="mt-3 max-h-72 overflow-y-auto rounded-xl bg-white p-2">
-                  {filteredServices.length ? (
-                    <div className="divide-y divide-gray-100">
-                      {filteredServices.map((service: Service) => (
-                        <div
-                          key={service.name}
-                          className="flex min-w-0 items-center justify-between gap-3 px-2 py-3"
-                        >
-                          <p className="truncate text-sm font-semibold text-gray-950">
-                            {service.name}
-                          </p>
-                          <p className="shrink-0 text-sm font-medium text-[#0F3D2E]">
-                            {formatPrice(service.price)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-[#D8D0BE] bg-[#FAF7EF] p-4 text-center text-sm text-gray-500">
-                      No services match your search.
-                    </div>
-                  )}
+              <div className="max-h-72 overflow-y-auto rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF] p-2">
+                <div className="divide-y divide-[#E8DEC9] rounded-xl bg-white">
+                  {business.services
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((service: Service) => (
+                      <div
+                        key={service.name}
+                        className="flex min-w-0 items-center justify-between gap-3 px-4 py-3"
+                      >
+                        <p className="truncate text-sm font-semibold text-gray-950">
+                          {service.name}
+                        </p>
+                        <p className="shrink-0 text-sm font-medium text-[#0F3D2E]">
+                          {formatPrice(service.price)}
+                        </p>
+                      </div>
+                    ))}
                 </div>
               </div>
             ) : (
@@ -734,34 +742,6 @@ export default function Dashboard() {
         </div>
 
         <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-lg font-semibold text-gray-950">
-              Business Schedule
-            </h2>
-
-            {business.workingHours ? (
-              <div className="mt-4 space-y-4 text-sm">
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-950">Working Days</p>
-                  <p className="mt-1 break-words text-gray-500">
-                    {business.workingHours.days?.join(", ")}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="font-medium text-gray-950">Hours</p>
-                  <p className="mt-1 text-gray-500">
-                    {business.workingHours.open} - {business.workingHours.close}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-gray-500">
-                Working hours not set.
-              </p>
-            )}
-          </div>
-
           <div className="min-w-0 rounded-2xl border border-[#D8D0BE] bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-950">
               Status Update

@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Check,
@@ -12,16 +12,68 @@ import {
   Share2,
   X,
 } from "lucide-react";
-import { useBusinessStore } from "../features/business/store";
+import { supabase } from "../lib/supabase-client";
+
+type Business = {
+  slug: string;
+  name: string;
+  location?: string | null;
+};
+
+function getSlugFromPath(pathname: string) {
+  const parts = pathname.split("/").filter(Boolean);
+  return parts[1] || "";
+}
 
 export default function AppLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [copied, setCopied] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [isLoadingBusiness, setIsLoadingBusiness] = useState(true);
 
-  const activeSlug = useBusinessStore((s) => s.activeBusinessSlug);
-  const business = useBusinessStore((s) =>
-    s.businesses.find((b) => b.slug === activeSlug)
-  );
+  const routeSlug = getSlugFromPath(location.pathname);
+  const activeSlug = routeSlug || business?.slug || "";
+
+  useEffect(() => {
+    async function loadActiveBusiness() {
+      setIsLoadingBusiness(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setBusiness(null);
+        setIsLoadingBusiness(false);
+        return;
+      }
+
+      let query = supabase
+        .from("businesses")
+        .select("slug, name, location")
+        .eq("user_id", user.id);
+
+      if (routeSlug) {
+        query = query.eq("slug", routeSlug);
+      }
+
+      const { data, error } = await query.limit(1).maybeSingle();
+
+      if (error || !data) {
+        setBusiness(null);
+        setIsLoadingBusiness(false);
+        return;
+      }
+
+      setBusiness(data as Business);
+      setIsLoadingBusiness(false);
+    }
+
+    loadActiveBusiness();
+  }, [routeSlug]);
 
   const bookingLink = useMemo(() => {
     if (!activeSlug) return "";
@@ -32,17 +84,17 @@ export default function AppLayout() {
     {
       label: "Dashboard",
       icon: LayoutDashboard,
-      to: activeSlug ? `/dashboard/${activeSlug}` : "/",
+      to: activeSlug ? `/dashboard/${activeSlug}` : "",
     },
     {
       label: "Schedule",
       icon: CalendarDays,
-      to: activeSlug ? `/todays-schedule/${activeSlug}` : "/",
+      to: activeSlug ? `/todays-schedule/${activeSlug}` : "",
     },
     {
       label: "Settings",
       icon: Settings,
-      to: activeSlug ? `/settings/${activeSlug}` : "/",
+      to: activeSlug ? `/settings/${activeSlug}` : "",
     },
   ];
 
@@ -61,9 +113,13 @@ export default function AppLayout() {
     setSidebarOpen(false);
   }
 
+  function handleMissingBusiness() {
+    closeSidebar();
+    navigate("/");
+  }
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#FAF7EF] text-gray-900 lg:flex">
-      {/* MOBILE HEADER */}
       <header className="sticky top-0 z-30 flex min-w-0 items-center justify-between gap-3 border-b border-[#D8D0BE] bg-[#0F3D2E] px-4 py-3 text-white lg:hidden">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-semibold">Booka</h1>
@@ -82,7 +138,6 @@ export default function AppLayout() {
         </button>
       </header>
 
-      {/* MOBILE OVERLAY */}
       {sidebarOpen && (
         <button
           type="button"
@@ -92,13 +147,11 @@ export default function AppLayout() {
         />
       )}
 
-      {/* SIDEBAR */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-72 max-w-[85vw] flex-col bg-[#0F3D2E] p-5 text-white shadow-2xl transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:max-w-none lg:translate-x-0 lg:shadow-none ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* BRAND */}
         <div className="mb-8 flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FAF7EF] text-[#0F3D2E]">
@@ -110,7 +163,7 @@ export default function AppLayout() {
                 Booka
               </h1>
               <p className="truncate text-xs font-medium uppercase tracking-[0.18em] text-white/55">
-                Business OS
+                Booking Made Easy
               </p>
             </div>
           </div>
@@ -125,7 +178,6 @@ export default function AppLayout() {
           </button>
         </div>
 
-        {/* ACTIVE BUSINESS CARD */}
         {business && (
           <div className="mb-6 min-w-0 rounded-xl border border-white/10 bg-white/10 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-white/50">
@@ -135,12 +187,17 @@ export default function AppLayout() {
               {business.name}
             </p>
             <p className="mt-1 truncate text-sm text-white/60">
-              {business.location}
+              {business.location || "Location not set"}
             </p>
           </div>
         )}
 
-        {/* NAVIGATION */}
+        {!business && !isLoadingBusiness && (
+          <div className="mb-6 rounded-xl border border-white/10 bg-white/10 p-4 text-sm text-white/70">
+            No active business found.
+          </div>
+        )}
+
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wide text-white/45">
             Main
@@ -148,6 +205,20 @@ export default function AppLayout() {
 
           {navItems.map((item) => {
             const Icon = item.icon;
+
+            if (!item.to) {
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={handleMissingBusiness}
+                  className="flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-white/45"
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            }
 
             return (
               <NavLink
@@ -173,17 +244,27 @@ export default function AppLayout() {
             Tools
           </p>
 
-          <NavLink
-            to={activeSlug ? `/b/${activeSlug}` : "/"}
-            onClick={closeSidebar}
-            className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
-          >
-            <ExternalLink className="h-4 w-4 shrink-0" />
-            <span className="truncate">Public Booking Page</span>
-          </NavLink>
+          {activeSlug ? (
+            <NavLink
+              to={`/b/${activeSlug}`}
+              onClick={closeSidebar}
+              className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              <span className="truncate">Public Booking Page</span>
+            </NavLink>
+          ) : (
+            <button
+              type="button"
+              onClick={handleMissingBusiness}
+              className="flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-white/45"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              <span className="truncate">Public Booking Page</span>
+            </button>
+          )}
         </nav>
 
-        {/* QUICK ACTIONS */}
         {activeSlug && (
           <div className="space-y-3 border-t border-white/10 pt-4">
             <div className="min-w-0 rounded-xl bg-black/10 p-3">
@@ -228,7 +309,6 @@ export default function AppLayout() {
         )}
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>

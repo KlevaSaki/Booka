@@ -368,64 +368,64 @@ export default function Dashboard() {
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
       <section className="overflow-hidden rounded-2xl border border-[#D8D0BE] bg-white shadow-sm">
-        <div className="relative min-h-64 bg-[#0F3D2E]">
-          {business.images?.[0] && (
-            <img
-              src={business.images[0]}
-              alt={business.name}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
+  <div className="relative min-h-64 bg-[#0F3D2E]">
+    {business.images?.[0] && (
+      <img
+        src={business.images[0]}
+        alt={business.name}
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    )}
 
-          <div className="absolute inset-0 bg-linear-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
+    <div className="absolute inset-0 bg-linear-to-r from-[#0F3D2E]/95 via-[#0F3D2E]/75 to-black/20" />
 
-          <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
-            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <div
-                  className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                    status === "Open"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {status}
-                </div>
+    <Link
+      to={`/settings/${business.slug}`}
+      aria-label="Settings"
+      className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF7EF] text-[#0F3D2E] shadow-sm transition hover:bg-white"
+    >
+      <Settings className="h-4 w-4" />
+    </Link>
 
-                <h1 className="max-w-2xl wrap-break-word text-3xl font-semibold tracking-tight sm:text-4xl">
-                  {business.name}
-                </h1>
-
-                <div className="mt-3 flex min-w-0 flex-wrap gap-3 text-sm text-white/75">
-                  <span className="inline-flex min-w-0 items-center gap-1">
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{business.location}</span>
-                  </span>
-
-                  {business.department && (
-                    <span className="rounded-full bg-white/10 px-3 py-1 capitalize">
-                      {business.department}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <Link
-                to={`/settings/${business.slug}`}
-                className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#FAF7EF] px-4 py-3 text-sm font-semibold text-[#0F3D2E] transition hover:bg-white sm:w-fit"
-              >
-                <Settings className="h-4 w-4 shrink-0" />
-                Settings
-              </Link>
-            </div>
-
-            {business.description && (
-              <p className="mt-8 max-w-2xl wrap-break-word text-sm leading-6 text-white/75 sm:text-base">
-                {business.description}
-              </p>
-            )}
-          </div>
+    <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
+      <div className="min-w-0 pr-14">
+        <div
+          className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+            status === "Open"
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {status}
         </div>
+
+        <h1 className="max-w-2xl wrap-break-word text-3xl font-semibold tracking-tight sm:text-4xl">
+          {business.name}
+        </h1>
+      </div>
+
+      <div className="mt-8 max-w-2xl">
+        <div className="mb-3 flex min-w-0 flex-wrap gap-3 text-sm text-white/80">
+          <span className="inline-flex min-w-0 items-center gap-1">
+            <MapPin className="h-4 w-4 shrink-0" />
+            <span className="truncate">{business.location}</span>
+          </span>
+
+          {business.department && (
+            <span className="rounded-full bg-white/10 px-3 py-1 capitalize">
+              {business.department}
+            </span>
+          )}
+        </div>
+
+        {business.description && (
+          <p className="wrap-break-word text-sm leading-6 text-white/75 sm:text-base">
+            {business.description}
+          </p>
+        )}
+      </div>
+    </div>
+  </div>
       </section>
 
       <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">

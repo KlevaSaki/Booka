@@ -139,6 +139,31 @@ const TIMES = [
   "23:59",
 ];
 
+const NOTIFICATIONS_STORAGE_PREFIX = "booka_dashboard_notifications";
+
+function getNotificationsStorageKey(businessSlug?: string) {
+  return `${NOTIFICATIONS_STORAGE_PREFIX}:${businessSlug || "unknown"}`;
+}
+
+function loadPersistedNotifications(businessSlug?: string): Notification[] {
+  try {
+    const data = localStorage.getItem(getNotificationsStorageKey(businessSlug));
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePersistedNotifications(
+  businessSlug: string | undefined,
+  notifications: Notification[]
+) {
+  localStorage.setItem(
+    getNotificationsStorageKey(businessSlug),
+    JSON.stringify(notifications.slice(0, 50))
+  );
+}
+
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
@@ -336,17 +361,24 @@ export default function Dashboard() {
     "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10";
 
   function addNotification(booking: Booking) {
-    setNotifications((prev) => [
-      {
-        id: booking.id,
-        title: "New booking",
-        message: `${booking.name} booked ${booking.service}`,
-        createdAt: Date.now(),
-        read: false,
-      },
-      ...prev,
-    ]);
-  }
+  const nextNotification = {
+    id: booking.id,
+    title: "New booking",
+    message: `${booking.name} booked ${booking.service}`,
+    createdAt: Date.now(),
+    read: false,
+  };
+
+  setNotifications((prev) => {
+    const next = [
+      nextNotification,
+      ...prev.filter((notification) => notification.id !== booking.id),
+    ].slice(0, 50);
+
+    savePersistedNotifications(business?.slug || slug, next);
+    return next;
+  });
+}
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -379,6 +411,7 @@ export default function Dashboard() {
       const mappedBusiness = normalizeBusiness(businessData as BusinessRow);
 
       setBusiness(mappedBusiness);
+      setNotifications(loadPersistedNotifications(mappedBusiness.slug));
       setStatusText(mappedBusiness.statusText || "");
 
       setSettingsImages([
@@ -775,15 +808,19 @@ export default function Dashboard() {
   ).length;
 
   function toggleNotifications() {
-    setNotificationsOpen((value) => !value);
+    const nextOpen = !notificationsOpen;
+    setNotificationsOpen(nextOpen);
 
-    if (!notificationsOpen) {
-      setNotifications((prev) =>
-        prev.map((notification) => ({
+    if (nextOpen) {
+      setNotifications((prev) => {
+        const next = prev.map((notification) => ({
           ...notification,
           read: true,
-        }))
-      );
+        }));
+
+        savePersistedNotifications(business?.slug || slug, next);
+        return next;
+      });
     }
   }
 
@@ -1023,12 +1060,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {settingsSuccess && (
-                  <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                    {settingsSuccess}
-                  </div>
-                )}
-
                 <section>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
@@ -1233,38 +1264,34 @@ export default function Dashboard() {
                     <div className="mt-3 max-h-80 overflow-y-auto rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF] p-2">
                       <div className="space-y-2">
                         {settingsServices.map((service, index) => (
-                          <div
-                            key={`${service.name}-${index}`}
-                            className="grid gap-2 rounded-xl bg-white p-3 sm:grid-cols-[minmax(0,1fr)_140px_auto]"
-                          >
-                            <input
-                              value={service.name}
-                              onChange={(e) =>
-                                updateService(index, "name", e.target.value)
-                              }
-                              className={inputClass}
-                            />
-
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={service.price}
-                              onChange={(e) =>
-                                updateService(index, "price", e.target.value)
-                              }
-                              className={inputClass}
-                            />
-
-                            <button
-                              type="button"
-                              onClick={() => deleteService(index)}
-                              className="inline-flex items-center justify-center rounded-xl border border-red-100 px-3 py-3 text-red-600 transition hover:bg-red-50"
-                              aria-label={`Delete ${service.name}`}
+                            <div
+                              key={`${service.name}-${index}`}
+                              className="grid grid-cols-[minmax(0,1fr)_110px_44px] items-center gap-2 rounded-xl bg-white p-3"
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                              <input
+                                value={service.name}
+                                onChange={(e) => updateService(index, "name", e.target.value)}
+                                className={inputClass}
+                              />
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={service.price}
+                                onChange={(e) => updateService(index, "price", e.target.value)}
+                                className={inputClass}
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() => deleteService(index)}
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 text-red-600 transition hover:bg-red-50"
+                                aria-label={`Delete ${service.name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                         ))}
                       </div>
                     </div>
@@ -1274,10 +1301,27 @@ export default function Dashboard() {
                     </p>
                   )}
                 </section>
+
+                <div className="border-t border-[#EFE7D6] p-5">
+                    {settingsSuccess && (
+                      <div className="mb-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                        {settingsSuccess}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={saveSettings}
+                      disabled={isSavingSettings}
+                      className="w-full rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {isSavingSettings ? "Saving..." : "Save Settings"}
+                    </button>
+                  </div>
               </div>
             </div>
 
-            <div className="border-t border-[#EFE7D6] p-5">
+            {/* <div className="border-t border-[#EFE7D6] p-5">
               <button
                 type="button"
                 onClick={saveSettings}
@@ -1286,7 +1330,7 @@ export default function Dashboard() {
               >
                 {isSavingSettings ? "Saving..." : "Save Settings"}
               </button>
-            </div>
+            </div> */}
           </aside>
         </>
       )}

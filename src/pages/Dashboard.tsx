@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Bell,
@@ -6,9 +7,12 @@ import {
   Check,
   Clipboard,
   ExternalLink,
+  ImagePlus,
   MapPin,
+  Plus,
   Settings,
   Share2,
+  Trash2,
   Wallet,
   X,
 } from "lucide-react";
@@ -102,6 +106,39 @@ type Notification = {
   read?: boolean;
 };
 
+const DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+const TIMES = [
+  "05:00",
+  "06:00",
+  "07:00",
+  "08:00",
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+  "19:00",
+  "20:00",
+  "21:00",
+  "22:00",
+  "23:00",
+  "23:59",
+];
+
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
@@ -189,6 +226,78 @@ function getServiceRevenue(bookingService: string, services: Service[]) {
   }, 0);
 }
 
+function compressImage(file: File, maxWidth = 1200, quality = 0.75) {
+  return new Promise<File>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(1, maxWidth / img.width);
+
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+
+        const ctx = canvas.getContext("2d");
+
+        if (!ctx) {
+          reject(new Error("Could not prepare image."));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Could not compress image."));
+              return;
+            }
+
+            resolve(
+              new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+                type: "image/jpeg",
+              })
+            );
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+
+      img.onerror = () => reject(new Error("Could not load image."));
+      img.src = reader.result as string;
+    };
+
+    reader.onerror = () => reject(new Error("Could not read image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadBusinessImage(
+  file: File,
+  businessId: string,
+  imageIndex: number
+) {
+  const path = `${businessId}/${Date.now()}-${imageIndex}-${crypto.randomUUID()}.jpg`;
+
+  const { error } = await supabase.storage
+    .from("business-images")
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: true,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from("business-images").getPublicUrl(path);
+
+  return data.publicUrl;
+}
+
 export default function Dashboard() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -202,6 +311,29 @@ export default function Dashboard() {
   const [isPostingStatus, setIsPostingStatus] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
+  const [settingsSuccess, setSettingsSuccess] = useState("");
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsImages, setSettingsImages] = useState<string[]>([
+    "",
+    "",
+    "",
+    "",
+  ]);
+  const [settingsImageFiles, setSettingsImageFiles] = useState<
+    Array<File | null>
+  >([null, null, null, null]);
+  const [settingsServices, setSettingsServices] = useState<Service[]>([]);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServicePrice, setNewServicePrice] = useState("");
+  const [settingsDays, setSettingsDays] = useState<string[]>([]);
+  const [settingsOpenTime, setSettingsOpenTime] = useState("09:00");
+  const [settingsCloseTime, setSettingsCloseTime] = useState("17:00");
+
+  const inputClass =
+    "w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-4 focus:ring-[#0F3D2E]/10";
 
   function addNotification(booking: Booking) {
     setNotifications((prev) => [
@@ -248,6 +380,17 @@ export default function Dashboard() {
 
       setBusiness(mappedBusiness);
       setStatusText(mappedBusiness.statusText || "");
+
+      setSettingsImages([
+        mappedBusiness.images[0] || "",
+        mappedBusiness.images[1] || "",
+        mappedBusiness.images[2] || "",
+        mappedBusiness.images[3] || "",
+      ]);
+      setSettingsServices(mappedBusiness.services || []);
+      setSettingsDays(mappedBusiness.workingHours?.days || []);
+      setSettingsOpenTime(mappedBusiness.workingHours?.open || "09:00");
+      setSettingsCloseTime(mappedBusiness.workingHours?.close || "17:00");
 
       if (!mappedBusiness.isSetupComplete) {
         navigate(`/setup/${mappedBusiness.slug}`);
@@ -305,6 +448,25 @@ export default function Dashboard() {
     };
   }, [slug, navigate]);
 
+  function openSettings() {
+    if (!business) return;
+
+    setSettingsError("");
+    setSettingsSuccess("");
+    setSettingsImages([
+      business.images[0] || "",
+      business.images[1] || "",
+      business.images[2] || "",
+      business.images[3] || "",
+    ]);
+    setSettingsImageFiles([null, null, null, null]);
+    setSettingsServices(business.services || []);
+    setSettingsDays(business.workingHours?.days || []);
+    setSettingsOpenTime(business.workingHours?.open || "09:00");
+    setSettingsCloseTime(business.workingHours?.close || "17:00");
+    setSettingsOpen(true);
+  }
+
   async function updateStatus() {
     if (!business) return;
 
@@ -350,6 +512,199 @@ export default function Dashboard() {
       setStatusError("Could not post status. Please try again.");
     } finally {
       setIsPostingStatus(false);
+    }
+  }
+
+  function toggleSettingsDay(day: string) {
+    setSettingsDays((prev) =>
+      prev.includes(day) ? prev.filter((item) => item !== day) : [...prev, day]
+    );
+  }
+
+  function updateService(index: number, field: keyof Service, value: string) {
+    setSettingsServices((prev) => {
+      const next = [...prev];
+      const current = next[index];
+
+      next[index] = {
+        ...current,
+        [field]: field === "price" ? Number(value) : value,
+      };
+
+      return next;
+    });
+  }
+
+  function deleteService(index: number) {
+    setSettingsServices((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function addService() {
+    setSettingsError("");
+
+    const name = newServiceName.trim();
+    const price = Number(newServicePrice);
+
+    if (!name) {
+      setSettingsError("Enter a service name.");
+      return;
+    }
+
+    if (Number.isNaN(price) || price <= 0) {
+      setSettingsError("Enter a valid service price.");
+      return;
+    }
+
+    const alreadyExists = settingsServices.some(
+      (service) => service.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (alreadyExists) {
+      setSettingsError("That service already exists.");
+      return;
+    }
+
+    setSettingsServices((prev) => [...prev, { name, price }]);
+    setNewServiceName("");
+    setNewServicePrice("");
+  }
+
+  async function handleSettingsImageUpload(
+    e: ChangeEvent<HTMLInputElement>,
+    imageIndex: number
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressedFile = await compressImage(file);
+      const previewUrl = URL.createObjectURL(compressedFile);
+
+      setSettingsImages((prev) => {
+        const next = [...prev];
+        next[imageIndex] = previewUrl;
+        return next.slice(0, 4);
+      });
+
+      setSettingsImageFiles((prev) => {
+        const next = [...prev];
+        next[imageIndex] = compressedFile;
+        return next.slice(0, 4);
+      });
+    } catch (error) {
+      console.error(error);
+      setSettingsError("Could not prepare image. Please try another photo.");
+    }
+  }
+
+  function removeSettingsImage(imageIndex: number) {
+    setSettingsImages((prev) => {
+      const next = [...prev];
+      next[imageIndex] = "";
+      return next;
+    });
+
+    setSettingsImageFiles((prev) => {
+      const next = [...prev];
+      next[imageIndex] = null;
+      return next;
+    });
+  }
+
+  async function saveSettings() {
+    if (!business) return;
+
+    setSettingsError("");
+    setSettingsSuccess("");
+
+    const cleanedServices = settingsServices
+      .map((service) => ({
+        name: service.name.trim(),
+        price: Number(service.price),
+      }))
+      .filter((service) => service.name);
+
+    if (!settingsDays.length) {
+      setSettingsError("Choose at least one working day.");
+      return;
+    }
+
+    if (timeToMinutes(settingsCloseTime) <= timeToMinutes(settingsOpenTime)) {
+      setSettingsError("Closing time must be later than opening time.");
+      return;
+    }
+
+    if (!cleanedServices.length) {
+      setSettingsError("Add at least one service.");
+      return;
+    }
+
+    const invalidService = cleanedServices.some(
+      (service) => Number.isNaN(service.price) || service.price <= 0
+    );
+
+    if (invalidService) {
+      setSettingsError("Every service needs a valid price.");
+      return;
+    }
+
+    try {
+      setIsSavingSettings(true);
+
+      const finalImages = await Promise.all(
+        settingsImages.map(async (image, index) => {
+          const file = settingsImageFiles[index];
+
+          if (!image) return "";
+          if (!file) return image;
+
+          return uploadBusinessImage(file, business.id, index);
+        })
+      );
+
+      const workingHours = {
+        days: settingsDays,
+        open: settingsOpenTime,
+        close: settingsCloseTime,
+      };
+
+      const { data, error } = await supabase
+        .from("businesses")
+        .update({
+          images: finalImages.filter(Boolean),
+          services: cleanedServices,
+          working_hours: workingHours,
+        })
+        .eq("id", business.id)
+        .eq("user_id", business.userId)
+        .select("*")
+        .single();
+
+      if (error || !data) {
+        setSettingsError(error?.message || "Could not save settings.");
+        return;
+      }
+
+      const updatedBusiness = normalizeBusiness(data as BusinessRow);
+
+      setBusiness(updatedBusiness);
+      setSettingsImages([
+        updatedBusiness.images[0] || "",
+        updatedBusiness.images[1] || "",
+        updatedBusiness.images[2] || "",
+        updatedBusiness.images[3] || "",
+      ]);
+      setSettingsImageFiles([null, null, null, null]);
+      setSettingsServices(updatedBusiness.services || []);
+      setSettingsDays(updatedBusiness.workingHours?.days || []);
+      setSettingsOpenTime(updatedBusiness.workingHours?.open || "09:00");
+      setSettingsCloseTime(updatedBusiness.workingHours?.close || "17:00");
+      setSettingsSuccess("Settings saved.");
+    } catch (error) {
+      console.error(error);
+      setSettingsError("Could not save settings. Please try again.");
+    } finally {
+      setIsSavingSettings(false);
     }
   }
 
@@ -502,13 +857,14 @@ export default function Dashboard() {
               )}
             </button>
 
-            <Link
-              to={`/settings/${business.slug}`}
+            <button
+              type="button"
+              onClick={openSettings}
               aria-label="Settings"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF7EF] text-[#0F3D2E] shadow-sm transition hover:bg-white"
             >
               <Settings className="h-4 w-4" />
-            </Link>
+            </button>
           </div>
 
           <div className="relative flex min-h-64 flex-col justify-between p-5 text-white sm:p-8">
@@ -556,7 +912,7 @@ export default function Dashboard() {
             <p className="text-sm font-semibold text-gray-950">
               Opening Hours
             </p>
-            <p className="mt-1 wrap-break-word text-sm text-gray-600">
+            <p className="mt-1 break-words text-sm text-gray-600">
               {business.workingHours?.days?.join(", ") || "Days not set"}
             </p>
             <p className="mt-1 text-sm text-gray-600">
@@ -612,7 +968,9 @@ export default function Dashboard() {
                         {notification.message}
                       </p>
                       <p className="mt-3 text-xs text-gray-400">
-                        {formatTime(new Date(notification.createdAt).toISOString())}
+                        {formatTime(
+                          new Date(notification.createdAt).toISOString()
+                        )}
                       </p>
                     </div>
                   ))}
@@ -622,6 +980,312 @@ export default function Dashboard() {
                   New bookings will appear here while this dashboard is open.
                 </div>
               )}
+            </div>
+          </aside>
+        </>
+      )}
+
+      {settingsOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close settings"
+            onClick={() => setSettingsOpen(false)}
+            className="fixed inset-0 z-40 bg-black/35"
+          />
+
+          <aside className="fixed inset-y-0 right-0 z-50 flex h-dvh w-[70vw] min-w-[320px] max-w-[760px] flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#EFE7D6] p-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Business controls
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-gray-950">
+                  Settings
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                className="rounded-xl bg-[#FAF7EF] p-2 text-[#0F3D2E] transition hover:bg-[#EFE7D6]"
+                aria-label="Close settings"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              <div className="space-y-6">
+                {settingsError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {settingsError}
+                  </div>
+                )}
+
+                {settingsSuccess && (
+                  <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                    {settingsSuccess}
+                  </div>
+                )}
+
+                <section>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-950">
+                        Business photos
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-500">
+                        First photo is the profile cover.
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
+                      {settingsImages.filter(Boolean).length}/4
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <div>
+                      {settingsImages[0] ? (
+                        <div className="relative h-44 overflow-hidden rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF]">
+                          <img
+                            src={settingsImages[0]}
+                            alt="Business profile"
+                            className="h-full w-full object-cover"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => removeSettingsImage(0)}
+                            className="absolute right-3 top-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#D8D0BE] bg-[#FAF7EF] text-center transition hover:border-[#0F3D2E]">
+                          <ImagePlus className="mb-2 h-6 w-6 text-[#0F3D2E]" />
+                          <span className="text-sm font-semibold text-gray-800">
+                            Upload profile picture
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleSettingsImageUpload(e, 0)}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1, 2, 3].map((imageIndex) => (
+                        <div key={imageIndex}>
+                          {settingsImages[imageIndex] ? (
+                            <div className="relative aspect-square overflow-hidden rounded-xl border border-[#D8D0BE] bg-[#FAF7EF]">
+                              <img
+                                src={settingsImages[imageIndex]}
+                                alt={`Business image ${imageIndex + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeSettingsImage(imageIndex)
+                                }
+                                className="absolute right-2 top-2 rounded-lg bg-white px-2 py-1 text-[11px] font-semibold text-red-600 shadow-sm"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#D8D0BE] bg-[#FAF7EF] text-center transition hover:border-[#0F3D2E]">
+                              <ImagePlus className="mb-1 h-5 w-5 text-[#0F3D2E]" />
+                              <span className="text-xs font-semibold text-gray-700">
+                                Photo {imageIndex + 1}
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) =>
+                                  handleSettingsImageUpload(e, imageIndex)
+                                }
+                              />
+                            </label>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-950">
+                    Opening days
+                  </h3>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {DAYS.map((day) => {
+                      const selected = settingsDays.includes(day);
+
+                      return (
+                        <button
+                          type="button"
+                          key={day}
+                          onClick={() => toggleSettingsDay(day)}
+                          className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+                            selected
+                              ? "border-[#0F3D2E] bg-[#0F3D2E] text-white"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-[#0F3D2E]"
+                          }`}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">
+                      Opening time
+                    </label>
+                    <select
+                      value={settingsOpenTime}
+                      onChange={(e) => setSettingsOpenTime(e.target.value)}
+                      className={inputClass}
+                    >
+                      {TIMES.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">
+                      Closing time
+                    </label>
+                    <select
+                      value={settingsCloseTime}
+                      onChange={(e) => setSettingsCloseTime(e.target.value)}
+                      className={inputClass}
+                    >
+                      {TIMES.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </section>
+
+                <section>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-950">
+                        Services offered
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Edit, delete, or add services and prices.
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-[#FAF7EF] px-3 py-1 text-xs font-semibold text-[#0F3D2E]">
+                      {settingsServices.length}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+                    <input
+                      value={newServiceName}
+                      onChange={(e) => setNewServiceName(e.target.value)}
+                      placeholder="Service name"
+                      className={inputClass}
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newServicePrice}
+                      onChange={(e) => setNewServicePrice(e.target.value)}
+                      placeholder="Price"
+                      className={inputClass}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={addService}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add
+                    </button>
+                  </div>
+
+                  {settingsServices.length ? (
+                    <div className="mt-3 max-h-80 overflow-y-auto rounded-2xl border border-[#D8D0BE] bg-[#FAF7EF] p-2">
+                      <div className="space-y-2">
+                        {settingsServices.map((service, index) => (
+                          <div
+                            key={`${service.name}-${index}`}
+                            className="grid gap-2 rounded-xl bg-white p-3 sm:grid-cols-[minmax(0,1fr)_140px_auto]"
+                          >
+                            <input
+                              value={service.name}
+                              onChange={(e) =>
+                                updateService(index, "name", e.target.value)
+                              }
+                              className={inputClass}
+                            />
+
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={service.price}
+                              onChange={(e) =>
+                                updateService(index, "price", e.target.value)
+                              }
+                              className={inputClass}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => deleteService(index)}
+                              className="inline-flex items-center justify-center rounded-xl border border-red-100 px-3 py-3 text-red-600 transition hover:bg-red-50"
+                              aria-label={`Delete ${service.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-gray-500">
+                      No services added yet.
+                    </p>
+                  )}
+                </section>
+              </div>
+            </div>
+
+            <div className="border-t border-[#EFE7D6] p-5">
+              <button
+                type="button"
+                onClick={saveSettings}
+                disabled={isSavingSettings}
+                className="w-full rounded-xl bg-[#0F3D2E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0c2f23] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingSettings ? "Saving..." : "Save Settings"}
+              </button>
             </div>
           </aside>
         </>
